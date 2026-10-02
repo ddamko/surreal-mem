@@ -2876,6 +2876,13 @@
           "graph": {
             "$ref": "#/components/schemas/GraphContext"
           },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
+          },
           "dropped": {
             "type": "integer",
             "title": "Dropped",
@@ -5125,6 +5132,13 @@
           },
           "graph": {
             "$ref": "#/components/schemas/GraphContext"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings"
           },
           "timings_ms": {
             "additionalProperties": {

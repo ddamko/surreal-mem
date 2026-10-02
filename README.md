@@ -239,9 +239,13 @@ them with comments. Container-specific overrides live in `compose.yaml`.
 - **Changed `SURREALMEM_API_TOKEN` in `.env`.** Recreate the API container
   (`docker compose --profile full up -d api`) or restart the host unit (`just services`), re-enter the
   token in the dashboard, and restart Claude Code sessions that use the plugin.
-- **Worker container logs connection errors to `host.docker.internal:8081`.** The llama-server units
-  bind `127.0.0.1` by default. Set `LLAMA_BIND_HOST=0.0.0.0` in `ops/inference.local.env` and run
-  `just inference` again, or use a hosted endpoint.
+- **Containers cannot reach inference** (worker logs connection errors to `host.docker.internal:8081`,
+  the Retrieval playground shows "Vector search skipped, embedding service unavailable", a vector-only
+  query returns 503). The llama-server units bind `127.0.0.1` by default, which Docker cannot reach.
+  Set `LLAMA_BIND_HOST=0.0.0.0` in `ops/inference.local.env` and run `just inference` again (set
+  `SURREALMEM_LLM_API_KEY` / `SURREALMEM_EMBED_API_KEY` too if the machine is on a shared network),
+  or use a hosted endpoint. While embeddings are down, retrieval degrades to lexical search and the
+  worker cannot extract.
 - **SurrealDB container exits with a permissions error on `/data`.** `SURREAL_RUN_AS` does not match
   the owner of `./data/surrealdb`. Set it to your `uid:gid` and run `just up` again.
 - **`llama-server` lists the GPU but aborts when a model loads.** The binary was built for another

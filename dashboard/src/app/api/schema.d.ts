@@ -870,6 +870,8 @@ export interface components {
             /** Observations */
             observations?: components["schemas"]["RetrievedItem"][];
             graph?: components["schemas"]["GraphContext"];
+            /** Warnings */
+            warnings?: string[];
             /**
              * Dropped
              * @default 0
@@ -1788,6 +1790,8 @@ export interface components {
             /** Items */
             items: components["schemas"]["RetrievedItem"][];
             graph?: components["schemas"]["GraphContext"];
+            /** Warnings */
+            warnings?: string[];
             /** Timings Ms */
             timings_ms?: {
                 [key: string]: number;

@@ -48,6 +48,9 @@
 
   <div class="col-span-8 min-h-0 overflow-y-auto p-6 xl:col-span-9">
     @if (error()) { <div class="alert alert-error text-sm">{{ error() }}</div> }
+    @for (w of (pack()?.warnings ?? result()?.warnings ?? []); track w) {
+      <div class="alert alert-warning mb-3 text-sm" data-testid="retrieval-warning">{{ w }}</div>
+    }
     @if (pack(); as p) {
       <div class="flex flex-wrap items-baseline gap-4">
         <h2 class="text-lg font-semibold">Context pack</h2>

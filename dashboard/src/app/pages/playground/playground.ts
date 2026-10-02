@@ -44,6 +44,7 @@ export interface Pack {
   linked: Linked[];
   graphEntities: number;
   graphRelationships: number;
+  warnings: string[];
   markdown: string;
   tokens_used: number;
   token_budget: number;
@@ -53,6 +54,7 @@ export interface Pack {
 export interface SearchResult {
   items: Item[];
   linked: Linked[];
+  warnings: string[];
   timings_ms: Record<string, number>;
 }
 
@@ -88,6 +90,7 @@ function pack(raw: ApiPack): Pack {
     linked: (raw.graph?.linked ?? []) as Linked[],
     graphEntities: raw.graph?.entities?.length ?? 0,
     graphRelationships: raw.graph?.relationships?.length ?? 0,
+    warnings: raw.warnings ?? [],
     markdown: raw.markdown,
     tokens_used: raw.tokens_used,
     token_budget: raw.token_budget,
@@ -100,6 +103,7 @@ function search(raw: ApiSearch): SearchResult {
   return {
     items: raw.items.map(item),
     linked: (raw.graph?.linked ?? []) as Linked[],
+    warnings: raw.warnings ?? [],
     timings_ms: (raw.timings_ms ?? {}) as Record<string, number>,
   };
 }
@@ -202,7 +206,8 @@ export class PlaygroundPage {
       }
       this.history.update((h) => [text, ...h.filter((q) => q !== text)].slice(0, 8));
     } catch (e) {
-      this.error.set(typeof e === 'object' && e && 'detail' in e ? String((e as { detail: unknown }).detail) : 'Request failed');
+      const problem = typeof e === 'object' && e ? (e as { detail?: unknown; title?: unknown; status?: unknown }) : {};
+      this.error.set(problem.detail ? String(problem.detail) : problem.title ? `${problem.status ?? ''} ${problem.title}`.trim() : 'Request failed');
     } finally {
       this.busy.set(false);
     }

@@ -1,15 +1,20 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+import pytest
+
 from surrealmem.bootstrap.services import build_services
 from surrealmem.conversations.domain import NewConversation, NewMessage, Role
 from surrealmem.knowledge.domain import BaseType, NewEntity, NewFact, NewRelationship
 from surrealmem.retrieval.adapters.surreal.reader import SurrealMemoryReader
 from surrealmem.retrieval.application import Retriever, estimate_tokens
 from surrealmem.retrieval.domain import MemoryType, RetrievalQuery
+from surrealmem.shared.infrastructure.inference.embedder import EmbeddingError
 from tests.fakes import FakeEmbedder
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from surrealmem.shared.infrastructure.surreal.connection import SurrealConnection
 
 
@@ -191,3 +196,47 @@ async def test_messages_and_summaries_are_searchable(migrated_db: SurrealConnect
 def test_estimate_tokens() -> None:
     assert estimate_tokens("") == 1
     assert estimate_tokens("a" * 400) == 100
+
+
+class _BrokenEmbedder(FakeEmbedder):
+    """Embeds documents fine (so seeding works) but fails every query embedding."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.query_calls = 0
+
+    async def embed_queries(self, texts: Sequence[str]) -> list[list[float]]:
+        self.query_calls += 1
+        raise EmbeddingError("ConnectTimeout (http://embed:8082/v1)")
+
+
+async def test_embedding_outage_degrades_to_lexical_with_warning(
+    migrated_db: SurrealConnection,
+) -> None:
+    embedder = _BrokenEmbedder()
+    await _seed(migrated_db, embedder)
+    retriever = Retriever(SurrealMemoryReader(migrated_db), embedder)
+    result = await retriever.search(
+        RetrievalQuery(text="port 8790", space="work", graph=False, memory_types=[MemoryType.FACT])
+    )
+    assert result.items, "lexical leg should still find the fact"
+    assert all(i.via == ["lexical"] for i in result.items)
+    assert result.warnings and "embedding service unavailable" in result.warnings[0]
+    pack = await retriever.context(
+        RetrievalQuery(text="port 8790", space="work", graph=False, memory_types=[MemoryType.FACT])
+    )
+    # The second call inside the backoff window does not touch the embedder at all.
+    assert embedder.query_calls == 1
+    assert pack.warnings and "retrying in" in pack.warnings[0]
+
+
+async def test_embedding_outage_on_vector_only_query_raises(
+    migrated_db: SurrealConnection,
+) -> None:
+    embedder = _BrokenEmbedder()
+    await _seed(migrated_db, embedder)
+    retriever = Retriever(SurrealMemoryReader(migrated_db), embedder)
+    with pytest.raises(EmbeddingError):
+        await retriever.search(
+            RetrievalQuery(text="port 8790", space="work", lexical=False, graph=False)
+        )

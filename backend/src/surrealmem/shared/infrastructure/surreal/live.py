@@ -7,6 +7,7 @@ oldest events rather than stall the relay.
 
 import asyncio
 import contextlib
+import inspect
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
@@ -113,7 +114,12 @@ class LiveRelay:
 
     async def _pump(self, table: str, live_id: Any) -> None:
         try:
-            async for notification in self.db.subscribe_live(live_id):
+            # The WebSocket engine's subscribe_live is a coroutine that *returns* the async
+            # generator; the embedded engine raises. Accept either shape.
+            stream = self.db.subscribe_live(live_id)
+            if inspect.isawaitable(stream):
+                stream = await stream
+            async for notification in stream:
                 if isinstance(notification, dict):
                     self.publish(
                         event_from_notification(table, cast("dict[str, Any]", notification))

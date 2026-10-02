@@ -28,6 +28,8 @@ def build_embedder(settings: Settings) -> OpenAIEmbedder:
         model=settings.embed_model,
         dimension=settings.embed_dimension,
         api_key=settings.embed_api_key.get_secret_value() if settings.embed_api_key else None,
+        timeout_seconds=settings.embed_timeout_seconds,
+        connect_timeout_seconds=settings.embed_connect_timeout_seconds,
     )
 
 

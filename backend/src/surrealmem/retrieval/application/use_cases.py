@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+import structlog
+
 from surrealmem.retrieval.domain import (
     ContextPack,
     GraphContext,
@@ -85,41 +87,82 @@ def _item_text(memory_type: MemoryType, row: dict[str, Any]) -> str:
     return str(row.get(_TEXT_FIELD[memory_type], ""))
 
 
+_log = structlog.get_logger(__name__)
+
+
 @dataclass(slots=True)
 class Retriever:
     reader: MemoryReader
     embedder: Embedder | None = None
     weights: ScoringWeights = field(default_factory=ScoringWeights)
     now: datetime | None = None
+    #: After an embedding failure, skip the vector leg for this long instead of paying the
+    #: connect timeout on every read.
+    embed_backoff_seconds: float = 30.0
+    _embed_down_until: float = field(default=0.0, init=False, repr=False)
 
     async def search(self, query: RetrievalQuery) -> SearchResult:
         timings: dict[str, float] = {}
+        warnings: list[str] = []
         started = time.perf_counter()
-        items, graph = await self._retrieve(query, timings)
+        items, graph = await self._retrieve(query, timings, warnings)
         timings["total"] = (time.perf_counter() - started) * 1000
         return SearchResult(
-            query=query.text, spaces=query.spaces, items=items, graph=graph, timings_ms=timings
+            query=query.text,
+            spaces=query.spaces,
+            items=items,
+            graph=graph,
+            warnings=warnings,
+            timings_ms=timings,
         )
 
     async def context(self, query: RetrievalQuery) -> ContextPack:
         timings: dict[str, float] = {}
+        warnings: list[str] = []
         started = time.perf_counter()
-        items, graph = await self._retrieve(query, timings)
+        items, graph = await self._retrieve(query, timings, warnings)
         pack = pack_context(query, items, graph)
         await self.reader.touch_facts([i.id for i in pack.facts + pack.preferences])
         timings["total"] = (time.perf_counter() - started) * 1000
-        return pack.model_copy(update={"timings_ms": timings})
+        return pack.model_copy(update={"timings_ms": timings, "warnings": warnings})
+
+    async def _query_embedding(
+        self, query: RetrievalQuery, timings: dict[str, float], warnings: list[str]
+    ) -> list[float] | None:
+        """Embed the query for the vector leg. When the embedding service fails and the lexical
+        leg is still on, degrade to lexical-only and say so; the read path must not take minutes
+        to fail because a GPU box is unreachable. Vector-only requests re-raise."""
+        if not query.vector or self.embedder is None:
+            return None
+        remaining = self._embed_down_until - time.monotonic()
+        if remaining > 0 and query.lexical:
+            warnings.append(
+                "Vector search skipped: the embedding service failed recently; "
+                f"retrying in {remaining:.0f}s."
+            )
+            return None
+        t0 = time.perf_counter()
+        try:
+            embedding = (await self.embedder.embed_queries([query.text]))[0]
+        except Exception as exc:
+            timings["embed"] = (time.perf_counter() - t0) * 1000
+            self._embed_down_until = time.monotonic() + self.embed_backoff_seconds
+            if not query.lexical:
+                raise
+            reason = str(exc) or type(exc).__name__
+            _log.warning("retrieval.embedding_unavailable", error=reason)
+            warnings.append(f"Vector search skipped, embedding service unavailable: {reason}")
+            return None
+        timings["embed"] = (time.perf_counter() - t0) * 1000
+        self._embed_down_until = 0.0
+        return embedding
 
     async def _retrieve(
-        self, query: RetrievalQuery, timings: dict[str, float]
+        self, query: RetrievalQuery, timings: dict[str, float], warnings: list[str]
     ) -> tuple[list[RetrievedItem], GraphContext]:
         spaces = query.spaces
         per_type = max(query.limit, 10)
-        embedding: list[float] | None = None
-        if query.vector and self.embedder is not None:
-            t0 = time.perf_counter()
-            embedding = (await self.embedder.embed_queries([query.text]))[0]
-            timings["embed"] = (time.perf_counter() - t0) * 1000
+        embedding = await self._query_embedding(query, timings, warnings)
 
         candidates: dict[str, _Candidate] = {}
         t0 = time.perf_counter()

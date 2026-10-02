@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     embed_model: str = "qwen3-embedding-0.6b"
     embed_dimension: int = Field(default=1024, ge=1)
     embed_api_key: SecretStr | None = None
+    # Reads fail fast when the embedding server is unreachable (retrieval falls back to lexical).
+    embed_timeout_seconds: float = Field(default=30.0, gt=0)
+    embed_connect_timeout_seconds: float = Field(default=5.0, gt=0)
 
     # Defaults for agents that do not say who they are (MCP stdio, hooks)
     default_space: str = "personal"

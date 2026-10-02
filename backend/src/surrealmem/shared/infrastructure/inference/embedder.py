@@ -28,7 +28,8 @@ class OpenAIEmbedder:
     dimension: int
     api_key: str | None = None
     batch_size: int = 32
-    timeout_seconds: float = 120.0
+    timeout_seconds: float = 30.0
+    connect_timeout_seconds: float = 5.0
     query_instruction: str = DEFAULT_QUERY_INSTRUCTION
     _client: httpx.AsyncClient | None = field(default=None, repr=False)
 
@@ -40,7 +41,9 @@ class OpenAIEmbedder:
         if self._client is None:
             headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
             self._client = httpx.AsyncClient(
-                base_url=self.base_url.rstrip("/"), headers=headers, timeout=self.timeout_seconds
+                base_url=self.base_url.rstrip("/"),
+                headers=headers,
+                timeout=httpx.Timeout(self.timeout_seconds, connect=self.connect_timeout_seconds),
             )
         return self._client
 
@@ -74,7 +77,9 @@ class OpenAIEmbedder:
             )
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise EmbeddingError(f"embedding request failed: {exc}") from exc
+            # httpx timeouts stringify to "", so always name the exception class.
+            detail = f"{type(exc).__name__}: {exc}".rstrip(": ")
+            raise EmbeddingError(f"embedding request failed: {detail} ({self.base_url})") from exc
         payload = cast("dict[str, Any]", response.json())
         data = sorted(
             cast("list[dict[str, Any]]", payload.get("data", [])),

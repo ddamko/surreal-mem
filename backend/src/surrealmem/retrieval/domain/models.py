@@ -118,6 +118,8 @@ class ContextPack(BaseModel):
     messages: list[RetrievedItem] = Field(default_factory=list[RetrievedItem])
     observations: list[RetrievedItem] = Field(default_factory=list[RetrievedItem])
     graph: GraphContext = Field(default_factory=GraphContext)
+    #: Degradations the caller should know about (e.g. vector search skipped).
+    warnings: list[str] = Field(default_factory=list[str])
     dropped: int = 0
     token_budget: int
     tokens_used: int
@@ -143,4 +145,5 @@ class SearchResult(BaseModel):
     spaces: list[str]
     items: list[RetrievedItem]
     graph: GraphContext = Field(default_factory=GraphContext)
+    warnings: list[str] = Field(default_factory=list[str])
     timings_ms: dict[str, float] = Field(default_factory=dict[str, float])
