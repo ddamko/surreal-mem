@@ -111,7 +111,8 @@ class SurrealEntityRepository:
             self.db,
             """
             LET $key = fn::normalize_name($a);
-            LET $found = (SELECT VALUE id FROM alias WHERE entity = $e AND alias_key = $key LIMIT 1)[0];
+            LET $found = (SELECT VALUE id FROM alias
+                WHERE entity = $e AND alias_key = $key LIMIT 1)[0];
             IF $found IS NONE {
                 CREATE alias CONTENT { entity: $e, alias: $a, source: $s };
                 UPDATE $e SET aliases = array::union(aliases, [$a]);
