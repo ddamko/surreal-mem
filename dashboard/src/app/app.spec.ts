@@ -43,5 +43,19 @@ describe('App', () => {
     expect(compiled.querySelector('aside')?.textContent).toContain('surrealmem');
     expect(compiled.querySelectorAll('nav a').length).toBe(8);
     expect(compiled.querySelectorAll('select option').length).toBe(3);
+    expect(compiled.querySelector('[data-testid="token-banner"]')).toBeNull();
+  });
+
+  it('asks for the API token when the API answers 401', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ title: 'Unauthorized', status: 401 }), { status: 401, headers: { 'content-type': 'application/problem+json' } })),
+    );
+    const fixture = TestBed.createComponent(App);
+    await fixture.whenStable();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    fixture.detectChanges();
+    const banner = (fixture.nativeElement as HTMLElement).querySelector('[data-testid="token-banner"]');
+    expect(banner?.textContent).toContain('SURREALMEM_API_TOKEN');
   });
 });

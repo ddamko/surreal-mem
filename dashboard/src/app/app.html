@@ -39,14 +39,28 @@
         <details class="dropdown dropdown-top dropdown-end">
           <summary class="btn btn-ghost btn-xs">API token</summary>
           <div class="dropdown-content panel z-10 w-64 p-3">
-            <input class="input input-sm input-bordered w-full" type="password" placeholder="Bearer token" [value]="tokenDraft" (input)="tokenDraft = $any($event.target).value" />
-            <button class="btn btn-primary btn-sm mt-2 w-full" (click)="saveToken()">Save and reload</button>
+            <input class="input input-sm input-bordered w-full" type="password" placeholder="Bearer token" [value]="tokenDraft" (input)="tokenDraft = $any($event.target).value" (keydown.enter)="saveToken()" />
+            <button class="btn btn-primary btn-sm mt-2 w-full" [disabled]="tokenState() === 'checking'" (click)="saveToken()">Save and reload</button>
+            @if (tokenState() === 'rejected') { <p class="mt-2 text-xs text-error">The API rejected that token.</p> }
           </div>
         </details>
       </div>
     </div>
   </aside>
   <main class="min-w-0 flex-1 overflow-y-auto">
+    @if (needsToken()) {
+      <div class="alert alert-warning m-4 flex-wrap" role="alert" data-testid="token-banner">
+        <div class="min-w-0 flex-1">
+          <div class="font-medium">{{ api.hasToken() ? 'The API rejected the stored token (401).' : 'This dashboard needs the API token.' }}</div>
+          <div class="text-xs opacity-80">Paste the value of SURREALMEM_API_TOKEN from the server's .env. It is kept in this browser only.</div>
+        </div>
+        <form class="flex items-center gap-2" (submit)="$event.preventDefault(); saveToken()">
+          <input class="input input-sm input-bordered w-64" type="password" placeholder="Bearer token" autocomplete="off" [value]="tokenDraft" (input)="tokenDraft = $any($event.target).value" />
+          <button class="btn btn-sm btn-neutral" type="submit" [disabled]="tokenState() === 'checking'">{{ tokenState() === 'checking' ? 'Checking…' : 'Use token' }}</button>
+        </form>
+        @if (tokenState() === 'rejected') { <div class="w-full text-xs text-error">The API rejected that token. Check .env on the server.</div> }
+      </div>
+    }
     <router-outlet />
   </main>
 </div>
