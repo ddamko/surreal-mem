@@ -1,0 +1,74 @@
+<section class="px-8 py-6">
+  <div class="flex flex-wrap items-baseline gap-4">
+    <h1 class="text-xl font-semibold tracking-tight">Operations</h1>
+    <p class="text-sm text-base-content/60">The queue the worker drains, the jobs you can trigger, and the configuration in effect.</p>
+    @if (notice()) { <span class="badge badge-sm badge-outline">{{ notice() }}</span> }
+  </div>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-3">
+    <div class="panel p-4">
+      <h2 class="font-medium">Queue</h2>
+      <dl class="mt-2 grid grid-cols-2 gap-2 text-sm">
+        @for (entry of counts.value() ?? {} | keyvalue; track entry.key) {
+          <div class="flex items-baseline justify-between rounded-field bg-base-300/40 px-2 py-1"><dt class="text-base-content/70">{{ entry.key }}</dt><dd class="stat-figure-mono font-medium">{{ entry.value }}</dd></div>
+        } @empty { <div class="text-base-content/60">Empty.</div> }
+      </dl>
+      <div class="mt-3 text-xs text-base-content/60">Workers seen: {{ workers().join(', ') || 'none running' }} · live feed {{ live.connected() ? 'connected' : 'reconnecting' }}</div>
+    </div>
+    <div class="panel p-4">
+      <h2 class="font-medium">Run a job</h2>
+      <div class="mt-2 flex flex-wrap gap-2">
+        @for (k of kinds; track k) { <button class="btn btn-sm" (click)="enqueue(k)">{{ k }}</button> }
+      </div>
+      <p class="mt-2 text-xs text-base-content/60">metrics = PageRank/communities · project = UMAP coordinates · reflect_sweep = summaries, contradictions, salience · salience alone.</p>
+    </div>
+    <div class="panel p-4">
+      <h2 class="font-medium">Configuration</h2>
+      @if (config.value(); as c) {
+        <dl class="mt-2 space-y-1 text-xs">
+          <div class="flex justify-between gap-3"><dt class="text-base-content/60">version</dt><dd class="mono">{{ c.version }}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-base-content/60">database</dt><dd class="mono truncate">{{ c.surreal_url }} {{ c.namespace }}/{{ c.database }}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-base-content/60">extraction model</dt><dd class="mono truncate">{{ c.llm_model }}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-base-content/60">embeddings</dt><dd class="mono truncate">{{ c.embed_model }} · {{ c.embed_dimension }}d</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-base-content/60">resolution</dt><dd class="mono">auto ≥ {{ c.resolution_auto_merge }} · review ≥ {{ c.resolution_review }}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-base-content/60">worker</dt><dd class="mono">{{ c.worker_concurrency }} slots · window {{ c.extraction_window }}</dd></div>
+          <div class="flex justify-between gap-3"><dt class="text-base-content/60">schedule</dt><dd class="mono">@for (s of c.schedule_seconds | keyvalue; track s.key) {{{ s.key }} {{ s.value }}s }</dd></div>
+        </dl>
+      }
+    </div>
+  </div>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-3">
+    <div class="panel p-4 lg:col-span-2">
+      <div class="flex items-center justify-between">
+        <h2 class="font-medium">Recent jobs</h2>
+        <select class="select select-xs select-bordered" [value]="status()" (change)="status.set($any($event.target).value)">
+          <option value="">all</option><option value="queued">queued</option><option value="running">running</option><option value="done">done</option><option value="dead">dead</option>
+        </select>
+      </div>
+      <table class="table table-xs mt-2">
+        <thead><tr><th>kind</th><th>status</th><th>attempts</th><th>duration</th><th>when</th><th>result</th></tr></thead>
+        <tbody>
+          @for (j of jobs.hasValue() ? jobs.value() : []; track j.id) {
+            <tr>
+              <td class="mono">{{ j.kind }}</td>
+              <td><span class="badge badge-xs" [class.badge-success]="j.status === 'done'" [class.badge-warning]="j.status === 'running'" [class.badge-info]="j.status === 'queued'" [class.badge-error]="j.status === 'dead'">{{ j.status }}</span></td>
+              <td class="mono">{{ j.attempts }}/{{ j.max_attempts }}</td>
+              <td class="mono">{{ j.duration_ms != null ? (j.duration_ms / 1000 | number: '1.1-1') + 's' : '' }}</td>
+              <td class="text-base-content/60">{{ relativeTime(j.finished_at ?? j.started_at ?? j.created_at) }}</td>
+              <td class="max-w-md truncate text-base-content/70" [title]="summary(j)">{{ summary(j) }}</td>
+            </tr>
+          } @empty { <tr><td colspan="6" class="text-base-content/60">No jobs.</td></tr> }
+        </tbody>
+      </table>
+    </div>
+    <div class="panel p-4">
+      <h2 class="font-medium">Schema</h2>
+      <ul class="mt-2 space-y-1 text-sm">
+        @for (m of migrations.value() ?? []; track m.version) {
+          <li class="flex items-center gap-2"><span class="mono text-xs text-base-content/50">{{ m.version | number: '4.0-0' }}</span><span class="truncate">{{ m.name }}</span><span class="ml-auto badge badge-xs" [class.badge-success]="m.applied && m.checksum_matches" [class.badge-warning]="m.applied && !m.checksum_matches" [class.badge-ghost]="!m.applied">{{ m.applied ? (m.checksum_matches ? 'applied' : 'changed') : 'pending' }}</span></li>
+        }
+      </ul>
+    </div>
+  </div>
+</section>

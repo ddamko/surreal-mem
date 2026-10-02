@@ -416,6 +416,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/relationship-kinds/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide Kind
+         * @description Accept a proposed kind into the vocabulary (proposed=false) or push it back.
+         */
+        post: operations["decide_kind_api_v1_relationship_kinds__kind__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/relationships": {
         parameters: {
             query?: never;
@@ -730,6 +750,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/stats/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Config
+         * @description Effective configuration without secrets (Operations page).
+         */
+        get: operations["config_api_v1_stats_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/stats/migrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Migrations
+         * @description Schema migration status against the migrations directory.
+         */
+        get: operations["migrations_api_v1_stats_migrations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -750,6 +810,43 @@ export interface components {
              * @default false
              */
             failed: boolean;
+        };
+        /** ConfigView */
+        ConfigView: {
+            /** Version */
+            version: string;
+            /** Surreal Url */
+            surreal_url: string;
+            /** Namespace */
+            namespace: string;
+            /** Database */
+            database: string;
+            /** Llm Base Url */
+            llm_base_url: string;
+            /** Llm Model */
+            llm_model: string;
+            /** Llm Fallback Model */
+            llm_fallback_model: string | null;
+            /** Embed Base Url */
+            embed_base_url: string;
+            /** Embed Model */
+            embed_model: string;
+            /** Embed Dimension */
+            embed_dimension: number;
+            /** Extraction Window */
+            extraction_window: number;
+            /** Resolution Auto Merge */
+            resolution_auto_merge: number;
+            /** Resolution Review */
+            resolution_review: number;
+            /** Worker Concurrency */
+            worker_concurrency: number;
+            /** Schedule Seconds */
+            schedule_seconds: {
+                [key: string]: number;
+            };
+            /** Default Space */
+            default_space: string;
         };
         /**
          * ContextPack
@@ -1116,6 +1213,8 @@ export interface components {
             started_at?: string | null;
             /** Finished At */
             finished_at?: string | null;
+            /** Duration Ms */
+            duration_ms?: number | null;
             /** Correlation Id */
             correlation_id?: string | null;
             /** Dedupe Key */
@@ -1138,6 +1237,11 @@ export interface components {
          * @enum {string}
          */
         JobStatus: "queued" | "running" | "done" | "failed" | "dead";
+        /** KindDecision */
+        KindDecision: {
+            /** Proposed */
+            proposed: boolean;
+        };
         /** LinkedEntity */
         LinkedEntity: {
             /** Id */
@@ -1227,6 +1331,17 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             };
+        };
+        /** MigrationRow */
+        MigrationRow: {
+            /** Version */
+            version: number;
+            /** Name */
+            name: string;
+            /** Applied */
+            applied: boolean;
+            /** Checksum Matches */
+            checksum_matches: boolean;
         };
         /** NewConversation */
         NewConversation: {
@@ -2713,6 +2828,41 @@ export interface operations {
             };
         };
     };
+    decide_kind_api_v1_relationship_kinds__kind__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["KindDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationKind"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     add_relationship_api_v1_relationships_post: {
         parameters: {
             query?: never;
@@ -3342,6 +3492,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Overview"];
+                };
+            };
+        };
+    };
+    config_api_v1_stats_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfigView"];
+                };
+            };
+        };
+    };
+    migrations_api_v1_stats_migrations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MigrationRow"][];
                 };
             };
         };

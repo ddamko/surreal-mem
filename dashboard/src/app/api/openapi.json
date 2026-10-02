@@ -1611,6 +1611,59 @@
         }
       }
     },
+    "/api/v1/relationship-kinds/{kind}": {
+      "post": {
+        "tags": [
+          "knowledge"
+        ],
+        "summary": "Decide Kind",
+        "description": "Accept a proposed kind into the vocabulary (proposed=false) or push it back.",
+        "operationId": "decide_kind_api_v1_relationship_kinds__kind__post",
+        "parameters": [
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Kind"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KindDecision"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelationKind"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/relationships": {
       "post": {
         "tags": [
@@ -2570,6 +2623,54 @@
           }
         }
       }
+    },
+    "/api/v1/stats/config": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Config",
+        "description": "Effective configuration without secrets (Operations page).",
+        "operationId": "config_api_v1_stats_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/stats/migrations": {
+      "get": {
+        "tags": [
+          "stats"
+        ],
+        "summary": "Migrations",
+        "description": "Schema migration status against the migrations directory.",
+        "operationId": "migrations_api_v1_stats_migrations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MigrationRow"
+                  },
+                  "type": "array",
+                  "title": "Response Migrations Api V1 Stats Migrations Get"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2618,6 +2719,104 @@
         },
         "type": "object",
         "title": "CompleteBody"
+      },
+      "ConfigView": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "surreal_url": {
+            "type": "string",
+            "title": "Surreal Url"
+          },
+          "namespace": {
+            "type": "string",
+            "title": "Namespace"
+          },
+          "database": {
+            "type": "string",
+            "title": "Database"
+          },
+          "llm_base_url": {
+            "type": "string",
+            "title": "Llm Base Url"
+          },
+          "llm_model": {
+            "type": "string",
+            "title": "Llm Model"
+          },
+          "llm_fallback_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Llm Fallback Model"
+          },
+          "embed_base_url": {
+            "type": "string",
+            "title": "Embed Base Url"
+          },
+          "embed_model": {
+            "type": "string",
+            "title": "Embed Model"
+          },
+          "embed_dimension": {
+            "type": "integer",
+            "title": "Embed Dimension"
+          },
+          "extraction_window": {
+            "type": "integer",
+            "title": "Extraction Window"
+          },
+          "resolution_auto_merge": {
+            "type": "number",
+            "title": "Resolution Auto Merge"
+          },
+          "resolution_review": {
+            "type": "number",
+            "title": "Resolution Review"
+          },
+          "worker_concurrency": {
+            "type": "integer",
+            "title": "Worker Concurrency"
+          },
+          "schedule_seconds": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Schedule Seconds"
+          },
+          "default_space": {
+            "type": "string",
+            "title": "Default Space"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "surreal_url",
+          "namespace",
+          "database",
+          "llm_base_url",
+          "llm_model",
+          "llm_fallback_model",
+          "embed_base_url",
+          "embed_model",
+          "embed_dimension",
+          "extraction_window",
+          "resolution_auto_merge",
+          "resolution_review",
+          "worker_concurrency",
+          "schedule_seconds",
+          "default_space"
+        ],
+        "title": "ConfigView"
       },
       "ContextPack": {
         "properties": {
@@ -3524,6 +3723,17 @@
             ],
             "title": "Finished At"
           },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
           "correlation_id": {
             "anyOf": [
               {
@@ -3588,6 +3798,19 @@
           "dead"
         ],
         "title": "JobStatus"
+      },
+      "KindDecision": {
+        "properties": {
+          "proposed": {
+            "type": "boolean",
+            "title": "Proposed"
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposed"
+        ],
+        "title": "KindDecision"
       },
       "LinkedEntity": {
         "properties": {
@@ -3806,6 +4029,34 @@
           "created_at"
         ],
         "title": "Message"
+      },
+      "MigrationRow": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "applied": {
+            "type": "boolean",
+            "title": "Applied"
+          },
+          "checksum_matches": {
+            "type": "boolean",
+            "title": "Checksum Matches"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "name",
+          "applied",
+          "checksum_matches"
+        ],
+        "title": "MigrationRow"
       },
       "NewConversation": {
         "properties": {
