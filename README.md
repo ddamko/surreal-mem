@@ -23,3 +23,6 @@ just eval          # live extraction evaluation against the local models
 ```
 
 Claude Code: install the plugin in `integrations/claude-code/` (MCP tools + hooks).
+
+Dashboard pages: Overview, Graph explorer, Retrieval playground, Conversations, Analytics, Vector
+space, Curation, Operations. Set the API token once from the sidebar (defaults to `change-me` in dev).

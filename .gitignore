@@ -33,3 +33,7 @@ inference.local.env
 
 # Playwright MCP artifacts
 .playwright-mcp/
+
+# Playwright
+dashboard/test-results/
+dashboard/playwright-report/

@@ -83,6 +83,10 @@ test *args:
 test-integration *args:
     cd {{backend}}; uv run pytest -m integration {{args}}
 
+# Dashboard end-to-end smoke tests (needs `just api` and `just dashboard` running)
+e2e:
+    cd {{dashboard}}; npx playwright test
+
 # Dashboard unit tests
 test-dashboard:
     cd {{dashboard}}; npm test -- --watch=false

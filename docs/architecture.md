@@ -124,6 +124,27 @@ Both flow through the normal extraction queue, so entities are typed and resolve
 with provenance to the imported messages. `surrealmem seed synthetic` loads a deterministic
 fictional dataset for CI and screenshots.
 
+## 4c. Dashboard (Phase 6)
+
+Angular 22 standalone app under `dashboard/` (ADR-0018, 0019, 0020, 0030, 0031). It talks only to
+the API (REST + the `/api/v1/events` WebSocket relay of SurrealDB live queries). Types are generated
+from the OpenAPI schema (`just api-types` → `src/app/api/schema.d.ts`, consumed through
+`openapi-fetch`). Theme: the custom daisyUI `observatory` (dark) and `observatory-light` themes with
+one fixed hue per entity type, validated with the dataviz palette checker.
+
+| Page | What it shows | Libraries |
+|---|---|---|
+| Overview | counts, 30-day growth, live arrivals, the Three.js constellation | ECharts, Three.js |
+| Graph explorer | filtered graph, neighbourhood panel, expand, shortest path, archive | Sigma.js, graphology (ForceAtlas2) |
+| Retrieval | context pack or ranked search with every score component | — |
+| Conversations | turns with extraction status and mentioned entities, traces | — |
+| Analytics | centrality, communities, kinds, type flows, co-mentions, fact health | ECharts |
+| Vector space | 3D UMAP of entity or fact embeddings, hover/select, highlight | Three.js |
+| Curation | merge candidates, proposed kinds, archived entities | — |
+| Operations | queue, job triggers, configuration, schema status | — |
+
+Local end-to-end smoke tests: `just e2e` (Playwright against `just api` + `just dashboard`).
+
 ## 5. Code layout
 
 ```
