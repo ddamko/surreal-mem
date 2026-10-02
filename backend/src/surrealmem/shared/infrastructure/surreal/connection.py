@@ -33,6 +33,9 @@ class SurrealConfig:
         return self.url.startswith(EMBEDDED_SCHEMES)
 
 
+_TXN_GENERIC = "not executed due to a failed transaction"
+
+
 class ScriptError(RuntimeError):
     """A statement inside a script returned an error status."""
 
@@ -72,13 +75,21 @@ async def run_script(
     Raises :class:`ScriptError` for the first statement whose status is not ``OK``.
     """
     raw = await db.query_raw(sql, dict(variables) if variables else None)
+    if "error" in raw:
+        # Whole-script failure (for example a parse error): no statement ran.
+        error = cast("dict[str, Any]", raw["error"])
+        raise ScriptError(0, str(error.get("message", error)), _split_preview(sql, 0))
     outcomes = cast("list[dict[str, Any]]", raw["result"])
-    results: list[Any] = []
-    for index, outcome in enumerate(outcomes):
-        if outcome.get("status") != "OK":
-            raise ScriptError(index, str(outcome.get("result")), _split_preview(sql, index))
-        results.append(outcome.get("result"))
-    return results
+    failures = [
+        (i, str(o.get("result"))) for i, o in enumerate(outcomes) if o.get("status") != "OK"
+    ]
+    if failures:
+        # Inside a failed transaction every statement reports the generic message; prefer the
+        # statement that carries the real cause.
+        specific = [f for f in failures if _TXN_GENERIC not in f[1]]
+        index, message = specific[0] if specific else failures[0]
+        raise ScriptError(index, message, _split_preview(sql, index))
+    return [o.get("result") for o in outcomes]
 
 
 async def run_one(

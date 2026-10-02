@@ -1,1 +1,53 @@
 """knowledge slice: domain layer."""
+
+from surrealmem.knowledge.domain.models import (
+    GENERIC_KIND,
+    PREFERENCE_KIND,
+    BaseType,
+    Entity,
+    EntityNeighborhood,
+    EntityPatch,
+    Fact,
+    FactStatus,
+    NewEntity,
+    NewFact,
+    NewRelationship,
+    RelationKind,
+    Relationship,
+    ScoredEntity,
+    SourceKind,
+    normalize_kind,
+    normalize_subtype,
+)
+from surrealmem.knowledge.domain.ports import (
+    EntityNotFound,
+    EntityRepository,
+    FactNotFound,
+    FactRepository,
+    RelationshipRepository,
+)
+
+__all__ = [
+    "GENERIC_KIND",
+    "PREFERENCE_KIND",
+    "BaseType",
+    "Entity",
+    "EntityNeighborhood",
+    "EntityNotFound",
+    "EntityPatch",
+    "EntityRepository",
+    "Fact",
+    "FactNotFound",
+    "FactRepository",
+    "FactStatus",
+    "NewEntity",
+    "NewFact",
+    "NewRelationship",
+    "RelationKind",
+    "Relationship",
+    "RelationshipRepository",
+    "ScoredEntity",
+    "SourceKind",
+    "normalize_kind",
+    "normalize_subtype",
+]

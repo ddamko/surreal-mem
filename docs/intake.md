@@ -84,7 +84,7 @@ provenance from every memory back to its source message, and an MCP tool surface
 | 11 | Jobs | SurrealDB-backed queue with claim and lease; separate worker process; in-process dev mode; `wait_for_extraction`. |
 | 12 | Retrieval | BM25 + HNSW with native RRF, cheap entity linking, 1–2 hop expansion, salience rescoring, budgeted context pack with score breakdowns. No LLM on the read path. |
 | 13 | Consolidation | Reflection job: summaries, observations, contradiction flags, salience; archive, never auto-delete. |
-| 14 | Database | Docker Compose `surrealdb/surrealdb:v3`, SurrealKV volume, localhost:8000; SDK 2.0.0; `mem://` for tests. |
+| 14 | Database | Docker Compose `surrealdb/surrealdb:v3`, SurrealKV volume, localhost:8000; `mem://` for tests. SDK: `surrealdb[embedded]==3.0.0b8` (the stable 2.0.0 embeds a 2.0 engine; see ADR-0014 amendment). |
 | 15 | Schema | SCHEMAFULL + one FLEXIBLE `metadata`; numbered `.surql` migrations, Python runner, `_migration` table. |
 | 16 | MCP | One core, two entrypoints (HTTP at `/mcp`, stdio command); official `mcp` SDK; Neo4j-style tool surface incl. read-only `graph_query`. |
 | 17 | Dashboard transport | Service only: REST + one typed WebSocket relay of live queries. |

@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from surrealmem.bootstrap.services import build_services
 from surrealmem.shared.infrastructure.surreal.connection import (
     SurrealConfig,
     SurrealConnection,
@@ -11,6 +12,7 @@ from surrealmem.shared.infrastructure.surreal.connection import (
 )
 
 if TYPE_CHECKING:
+    from surrealmem.bootstrap.services import Services
     from surrealmem.shared.infrastructure.config import Settings
 
 
@@ -18,6 +20,7 @@ if TYPE_CHECKING:
 class AppContainer:
     settings: Settings
     db: SurrealConnection
+    services: Services
 
     async def is_ready(self) -> bool:
         try:
@@ -41,4 +44,4 @@ def surreal_config(settings: Settings) -> SurrealConfig:
 
 async def build_container(settings: Settings) -> AppContainer:
     db = await open_connection(surreal_config(settings))
-    return AppContainer(settings=settings, db=db)
+    return AppContainer(settings=settings, db=db, services=build_services(db))

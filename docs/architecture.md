@@ -15,7 +15,7 @@ rationale lives in `docs/adr/`. Sections marked *planned* describe phases not ye
   agents                                          │ FastAPI service              │
   Dashboard ──────── REST /api/v1 + WS /events ──▶│  REST · MCP · live relay     │
                                                   └──────────────┬───────────────┘
-                                                                 │ ws://  (SDK 2.0.0)
+                                                                 │ ws:// (SDK 3.0.0b8)
                         ┌──────────────────────┐                 ▼
                         │ surrealmem worker    │──────▶ ┌──────────────────────┐
                         │ extraction·reflection│        │ SurrealDB 3.3        │
@@ -40,18 +40,22 @@ One graph, partitioned by `space` tags, with globally shared entities.
 
 | Layer | Tables | Notes |
 |---|---|---|
-| Short-term | `conversation`, `message` | Ordered messages per conversation; `space`, `agent_id` on the conversation. |
-| Long-term | `entity`, `related_to` (relation), `fact`, `alias`, `merge_candidate`, `same_as` (relation) | Six base entity types + open subtype. One semantic edge table with a `kind`. Reified bi-temporal facts; preferences are `PREFERS` facts. |
-| Reasoning | `trace`, `step`, `tool_call`, `tool` | `initiated_by` links a trace to a message; `touched` links steps to entities. |
-| Derived | `summary`, `observation`, `embedding` metadata on records, `metrics_at` fields | Written by the reflection, metrics and projection jobs. |
-| Provenance | `mentions` (message → entity), `extracted_from` (entity/fact → message) | Every memory can be followed back to its source text. |
+| Scoping | `space`, `agent` | Registry rows upserted on first use; everything else carries a `space` string and an `agent_id`. |
+| Short-term | `conversation`, `message` | Ordered messages per conversation (`seq` unique per conversation); BM25 and HNSW indexes on message content. |
+| Long-term | `entity`, `alias`, `relation_kind`, `related_to` (relation), `fact`, `merge_candidate`, `same_as` (relation) | Six base entity types + open subtype; one semantic edge table with a `kind` drawn from the seeded `relation_kind` vocabulary (new kinds flagged `proposed`); reified bi-temporal facts; preferences are `PREFERS` facts with a category. |
+| Reasoning | `trace`, `step`, `tool`, `tool_call` | `initiated_by` links a trace to a message; `touched` links steps to entities. |
+| Derived | `summary`, `observation` | Written by the reflection job; both embedded and full-text indexed. |
+| Provenance | `mentions` (message → entity), `extracted_from` (fact, entity or edge → message) | Every memory can be followed back to its source text. |
 | Operations | `job`, `_migration` | Queue with `claimed_by`/`lease_until`; applied schema versions. |
+
+Migrations: `0001` analyzers and functions, `0002` spaces and conversations, `0003` knowledge,
+`0004` reasoning, `0005` derived, `0006` operations.
 
 Temporal fields on `fact`: `valid_from`/`valid_to` (world time) and
 `recorded_at`/`invalidated_at`/`superseded_by` (system belief). Nothing is deleted automatically;
 superseded facts are invalidated and low-salience memories are archived.
 
-## 3. Write path (planned, Phase 3)
+## 3. Write path (Phase 2 delivers steps 1, 3 and 4 as use cases; the worker arrives in Phase 3)
 
 1. `store_message` writes the `message` and a `job` row in one transaction and returns immediately.
 2. The worker claims the job under a lease, builds a window of the previous messages, and calls the
@@ -104,7 +108,12 @@ Cross-slice composition happens only in `bootstrap`.
 
 - Every multi-statement script runs through `run_script`, which checks each statement's status. The
   SDK's `query()` returns only the first statement's result and hides later failures.
-- Tables are SCHEMAFULL; `metadata` is the single FLEXIBLE object per table.
+- Tables are SCHEMAFULL; `metadata` is the single FLEXIBLE object per table. Relation tables are
+  `ENFORCED`, so an edge cannot point at a missing record.
+- `fn::normalize_name` (lowercase, trimmed) is the canonical key for entity and alias matching; the
+  Python mirror is `shared.domain.normalize_name`.
+- `ORDER BY` fields must appear in the projection (3.x), `type::record()` builds record ids from
+  strings, and full-text indexes use the 3.x `FULLTEXT ANALYZER ... BM25` syntax.
 - Embeddings are `array<float>` fields with HNSW indexes (`DIST COSINE`, dimension from settings).
   Text fields that are searched carry BM25 indexes using the shared `english` analyzer.
 - Record ids are deterministic where a natural key exists (e.g. `_migration` by version); otherwise
