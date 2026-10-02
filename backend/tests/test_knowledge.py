@@ -324,3 +324,26 @@ async def test_counts(graph: Graph) -> None:
         )
     )
     assert await graph.facts.count_by_status() == {"active": 1}
+
+
+async def test_identical_statements_are_not_duplicated(graph: Graph) -> None:
+    derek, _ = await graph.upsert(NewEntity(name="Derek", base_type=BaseType.PERSON))
+    first = await graph.add_fact(
+        NewFact(
+            statement="Derek uses Nushell as his shell.",
+            space="work",
+            subject_id=derek.id,
+            kind="USES",
+            object_literal="Nushell",
+        )
+    )
+    second = await graph.add_fact(
+        NewFact(
+            statement="  derek uses nushell as his shell. ",
+            space="work",
+            subject_id=derek.id,
+            kind="USES",
+        )
+    )
+    assert second.id == first.id
+    assert len(await graph.facts.for_subject(derek.id)) == 1

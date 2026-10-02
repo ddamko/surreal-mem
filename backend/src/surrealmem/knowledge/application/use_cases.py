@@ -208,6 +208,11 @@ class AddFact:
         if data.object_id is not None and await self.entities.get(data.object_id) is None:
             raise EntityNotFound(data.object_id)
 
+        statement_key = normalize_name(data.statement)
+        for existing in await self.facts.for_subject(data.subject_id):
+            if existing.kind == data.kind and normalize_name(existing.statement) == statement_key:
+                return existing
+
         kind = await self.relationships.get_kind(data.kind)
         if kind is None:
             await self.relationships.register_kind(data.kind, proposed=True)
