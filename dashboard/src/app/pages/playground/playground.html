@@ -9,10 +9,10 @@
     </div>
     <div class="mt-4 space-y-3 text-sm">
       <label class="flex items-center justify-between gap-3"><span>Space</span><span class="mono text-xs">{{ space.selected() || 'personal' }}</span></label>
-      <label class="flex items-center justify-between"><span>Include shared space</span><input type="checkbox" class="toggle toggle-sm" [checked]="includeShared()" (change)="includeShared.set($any($event.target).checked)" /></label>
-      <label class="flex items-center justify-between"><span>Lexical (BM25)</span><input type="checkbox" class="toggle toggle-sm" [checked]="lexical()" (change)="lexical.set($any($event.target).checked)" /></label>
-      <label class="flex items-center justify-between"><span>Vector (HNSW)</span><input type="checkbox" class="toggle toggle-sm" [checked]="vector()" (change)="vector.set($any($event.target).checked)" /></label>
-      <label class="flex items-center justify-between"><span>Graph expansion</span><input type="checkbox" class="toggle toggle-sm" [checked]="graph()" (change)="graph.set($any($event.target).checked)" /></label>
+      <label class="flex items-center justify-between"><span>Include shared space</span><input type="checkbox" class="checkbox checkbox-sm checkbox-primary" [checked]="includeShared()" (change)="includeShared.set($any($event.target).checked)" /></label>
+      <label class="flex items-center justify-between"><span>Lexical (BM25)</span><input type="checkbox" class="checkbox checkbox-sm checkbox-primary" [checked]="lexical()" (change)="lexical.set($any($event.target).checked)" /></label>
+      <label class="flex items-center justify-between"><span>Vector (HNSW)</span><input type="checkbox" class="checkbox checkbox-sm checkbox-primary" [checked]="vector()" (change)="vector.set($any($event.target).checked)" /></label>
+      <label class="flex items-center justify-between"><span>Graph expansion</span><input type="checkbox" class="checkbox checkbox-sm checkbox-primary" [checked]="graph()" (change)="graph.set($any($event.target).checked)" /></label>
       <label class="block"><div class="flex justify-between"><span>Token budget</span><span class="mono text-xs">{{ budget() }}</span></div><input type="range" min="100" max="6000" step="100" class="range range-xs" [value]="budget()" (input)="budget.set(+$any($event.target).value)" /></label>
       <label class="block"><div class="flex justify-between"><span>Hops</span><span class="mono text-xs">{{ hops() }}</span></div><input type="range" min="0" max="3" step="1" class="range range-xs" [value]="hops()" (input)="hops.set(+$any($event.target).value)" /></label>
       <label class="block"><div class="flex justify-between"><span>Candidates</span><span class="mono text-xs">{{ limit() }}</span></div><input type="range" min="5" max="60" step="5" class="range range-xs" [value]="limit()" (input)="limit.set(+$any($event.target).value)" /></label>
