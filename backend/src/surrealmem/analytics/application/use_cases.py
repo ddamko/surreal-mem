@@ -177,9 +177,10 @@ def _coords(result: Any) -> list[list[float]]:
 
     array: Any = result[0] if isinstance(result, tuple) else result
     if hasattr(array, "toarray"):
-        array = cast("Any", array).toarray()
-    matrix: Any = np.asarray(cast("Any", array), dtype=float)
-    return cast("list[list[float]]", matrix.tolist())
+        array = array.toarray()
+    matrix: Any = np.asarray(array, dtype=float)
+    rows: Any = matrix.tolist()
+    return cast("list[list[float]]", rows)
 
 
 def _finite(value: float) -> float:

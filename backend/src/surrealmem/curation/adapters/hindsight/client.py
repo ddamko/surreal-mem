@@ -36,13 +36,14 @@ class HindsightClient:
     async def banks(self) -> list[str]:
         response = await self._http().get(f"/v1/{self.tenant}/banks")
         response.raise_for_status()
-        payload = response.json()
-        items = (
+        payload: Any = response.json()
+        raw: Any = (
             payload
             if isinstance(payload, list)
             else payload.get("items") or payload.get("banks") or []
         )
-        return [str(b.get("bank_id") or b.get("id")) for b in cast("list[dict[str, Any]]", items)]
+        items = cast("list[dict[str, Any]]", raw)
+        return [str(b.get("bank_id") or b.get("id")) for b in items]
 
     async def documents(
         self, bank_id: str, *, page_size: int = 100

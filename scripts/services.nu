@@ -56,7 +56,13 @@ def "main status" []: nothing -> table {
     let cfg = (config)
     units | each { |unit|
         { unit: $unit, active: (^systemctl --user is-active $"($unit).service" | complete | get stdout | str trim) }
-    } | append { unit: "api health", active: ((do { ^curl -fsS --max-time 3 $"http://127.0.0.1:($cfg.API_PORT)/health/ready" } | complete | get stdout | str trim) | default "unreachable") }
+    } | append {
+        unit: "api health",
+        active: (
+            let probe = (do { ^curl -fsS --max-time 3 $"http://127.0.0.1:($cfg.API_PORT)/health/ready" } | complete);
+            if $probe.exit_code == 0 { $probe.stdout | str trim } else { "unreachable" }
+        )
+    }
 }
 
 def "main stop" []: nothing -> nothing {
