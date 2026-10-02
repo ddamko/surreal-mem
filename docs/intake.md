@@ -5,7 +5,7 @@
 | **Project** | surrealmem (repo `surreal-mem`) |
 | **Owner** | Derek Damko |
 | **Intake date** | 2026-10-02 |
-| **Status** | Scope agreed, build starting at Phase 1 |
+| **Status** | All six phases delivered 2026-10-02; follow-ups listed in section 7 |
 | **Method** | 33 decisions settled one at a time in a structured interview; each becomes an ADR under `docs/adr/` |
 
 ## 1. Purpose
@@ -123,11 +123,18 @@ provenance from every memory back to its source message, and an MCP tool surface
 | 5 | Jobs and seed: Hindsight importer, synthetic generator, reflection, metrics, UMAP | Both Hindsight banks imported; metrics and projections present on records |
 | 6 | Dashboard: theme and shell, then the eight pages in order; Playwright on the synthetic set | All pages usable against the seeded graph |
 
-## 7. Open items
+## 7. Open items (after delivery)
 
-- Confirm the exact local instruct model once downloaded and benchmarked on the extraction eval set (decision 9 names a class, not a file).
-- Resolution thresholds (auto-merge and review band) are initial guesses to be tuned against the Hindsight import.
-- Hermes provider plugin: schedule after Phase 6.
+- Local model confirmed: `Qwen3-30B-A3B-Instruct-2507` Q4_K_M scored 19/19 on the extraction eval set.
+  Throughput on long imported transcripts is the remaining tuning target (output caps and a 180 s
+  request timeout are in place; two worker slots).
+- Resolution thresholds (auto-merge 0.92, review 0.80) produced 48 review candidates from the
+  Hindsight import; tune after reviewing them in the Curation page.
+- SDK pin changed to `surrealdb[embedded]==3.0.0b8` (ADR-0014 amendment); move to 3.0 GA when released.
+- API port is 8790 (8787 was taken on this machine).
+- Hermes provider plugin: next piece of work (maps onto the REST API and MCP over HTTP).
+- Light theme and Explorer label collisions deserve a polish pass; the dashboard can also be served by
+  the API from `dashboard/dist` (`just build-dashboard`).
 
 ## 8. References
 
