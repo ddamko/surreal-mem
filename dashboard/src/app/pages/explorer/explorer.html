@@ -1,0 +1,108 @@
+<section class="flex h-full min-h-0 flex-col">
+  <header class="flex flex-wrap items-center gap-3 border-b border-base-300 px-6 py-3">
+    <div class="relative">
+      <input class="input input-sm input-bordered w-64" placeholder="Find an entity" [value]="search()" (input)="search.set($any($event.target).value)" />
+      @if (searchHits().length) {
+        <ul class="menu menu-sm panel absolute left-0 top-9 z-20 w-72 shadow-lg">
+          @for (hit of searchHits(); track hit.id) {
+            <li><button (click)="select(hit.id)"><span class="type-dot" [style.--type-color]="typeColor(hit.base_type)"></span>{{ hit.name }}<span class="ml-auto text-xs opacity-60">{{ hit.base_type }}</span></button></li>
+          }
+        </ul>
+      }
+    </div>
+    <div class="flex items-center gap-1">
+      @for (type of baseTypes; track type) {
+        <button class="btn btn-xs" [class.btn-ghost]="!enabledTypes().has(type)" [class.opacity-40]="!enabledTypes().has(type)" (click)="toggleType(type)">
+          <span class="type-dot" [style.--type-color]="typeColor(type)"></span>{{ type }} <span class="opacity-60">{{ typeCounts()[type] ?? 0 }}</span>
+        </button>
+      }
+    </div>
+    <details class="dropdown">
+      <summary class="btn btn-xs">Kinds {{ kinds().size ? '(' + kinds().size + ')' : '' }}</summary>
+      <ul class="menu menu-sm dropdown-content panel z-20 max-h-80 w-56 flex-nowrap overflow-y-auto shadow-lg">
+        @for (kind of kindOptions.value() ?? []; track kind) {
+          <li><label class="cursor-pointer"><input type="checkbox" class="checkbox checkbox-xs" [checked]="kinds().has(kind)" (change)="toggleKind(kind)" /> <span class="mono">{{ kind }}</span></label></li>
+        }
+      </ul>
+    </details>
+    <label class="flex items-center gap-2 text-xs"><span class="text-base-content/60">Size</span>
+      <select class="select select-xs select-bordered" [value]="sizeBy()" (change)="sizeBy.set($any($event.target).value)">
+        <option value="mention_count">mentions</option><option value="pagerank">pagerank</option><option value="degree">degree</option><option value="betweenness">betweenness</option>
+      </select></label>
+    <label class="flex items-center gap-2 text-xs"><span class="text-base-content/60">Color</span>
+      <select class="select select-xs select-bordered" [value]="colorBy()" (change)="colorBy.set($any($event.target).value)">
+        <option value="type">entity type</option><option value="community">community</option>
+      </select></label>
+    <label class="flex items-center gap-2 text-xs"><span class="text-base-content/60">Max nodes</span>
+      <input type="range" min="50" max="3000" step="50" class="range range-xs w-28" [value]="limit()" (change)="limit.set(+$any($event.target).value)" /><span class="mono w-10">{{ limit() }}</span></label>
+    <button class="btn btn-ghost btn-xs" (click)="relayout()">Re-layout</button>
+    <span class="ml-auto text-xs text-base-content/60">{{ status() }}</span>
+  </header>
+
+  <div class="relative min-h-0 flex-1">
+    <div #canvas class="absolute inset-0"></div>
+    @if (graphData.isLoading()) {
+      <div class="absolute left-4 top-4 text-xs text-base-content/60">Loading graph…</div>
+    }
+    @if (graphData.error()) {
+      <div class="absolute left-4 top-4 rounded-field bg-error/20 px-3 py-2 text-sm">Could not load the graph. Is the API running?</div>
+    }
+    @if (graphData.hasValue() && graphData.value().nodes.length === 0 && !graphData.isLoading()) {
+      <div class="absolute inset-0 grid place-items-center text-sm text-base-content/60">No entities match these filters yet. Store a message or run the worker.</div>
+    }
+
+    @if (neighborhood.hasValue() && neighborhood.value(); as hood) {
+      <aside class="absolute right-4 top-4 bottom-4 w-96 overflow-y-auto panel p-4 shadow-xl">
+        <div class="flex items-start gap-2">
+          <span class="type-dot mt-1.5" [style.--type-color]="typeColor(hood.entity.base_type)"></span>
+          <div class="min-w-0 flex-1">
+            <h2 class="truncate text-lg font-semibold">{{ hood.entity.name }}</h2>
+            <div class="text-xs text-base-content/60">{{ hood.entity.base_type }}{{ hood.entity.subtype ? ' · ' + hood.entity.subtype : '' }} · {{ hood.entity.mention_count }} mentions</div>
+          </div>
+          <button class="btn btn-ghost btn-xs" (click)="selected.set(null)">✕</button>
+        </div>
+        @if (hood.entity.description) { <p class="mt-2 text-sm">{{ hood.entity.description }}</p> }
+        @if (hood.entity.aliases?.length) { <p class="mt-1 text-xs text-base-content/60">Also: {{ hood.entity.aliases?.join(', ') }}</p> }
+        <div class="mt-3 flex flex-wrap gap-1">
+          <button class="btn btn-xs btn-primary" (click)="expand(hood.entity.id)">Expand neighbours</button>
+          <button class="btn btn-xs" [class.btn-secondary]="pathSource() === hood.entity.id" (click)="findPath(hood.entity.id)">{{ pathSource() ? 'Path to here' : 'Path from here' }}</button>
+          <button class="btn btn-xs btn-ghost" (click)="archive(hood.entity.id)">Archive</button>
+        </div>
+        @if (hood.entity.metrics; as m) {
+          <dl class="mt-3 grid grid-cols-3 gap-2 text-xs">
+            <div><dt class="text-base-content/50">pagerank</dt><dd class="mono">{{ m['pagerank'] != null ? (m['pagerank'] | number: '1.4-4') : '–' }}</dd></div>
+            <div><dt class="text-base-content/50">degree</dt><dd class="mono">{{ m['degree'] ?? '–' }}</dd></div>
+            <div><dt class="text-base-content/50">community</dt><dd class="mono">{{ m['community'] ?? '–' }}</dd></div>
+          </dl>
+        }
+        <h3 class="mt-4 text-sm font-medium">Facts <span class="text-base-content/50">{{ hood.facts.length }}</span></h3>
+        <ul class="mt-1 space-y-2">
+          @for (fact of hood.facts; track fact.id) {
+            <li class="text-sm">
+              <div>{{ fact.statement }}</div>
+              <div class="text-xs text-base-content/50"><span class="mono">{{ fact.kind }}</span> · {{ fact.confidence | number: '1.0-2' }}{{ fact.valid_from ? ' · since ' + (fact.valid_from | slice: 0 : 10) : '' }}{{ fact.supersedes ? ' · supersedes earlier' : '' }}</div>
+            </li>
+          } @empty { <li class="text-xs text-base-content/50">No active facts.</li> }
+        </ul>
+        <h3 class="mt-4 text-sm font-medium">Relationships <span class="text-base-content/50">{{ hood.relationships.length }}</span></h3>
+        <ul class="mt-1 space-y-1">
+          @for (rel of hood.relationships; track rel.id) {
+            <li class="flex items-center gap-1 text-sm">
+              <button class="link truncate" (click)="select(rel.source_id)">{{ nameOf(rel.source_id) }}</button>
+              <span class="mono text-xs text-base-content/60">{{ rel.kind }}</span>
+              <button class="link truncate" (click)="select(rel.target_id)">{{ nameOf(rel.target_id) }}</button>
+              @if (rel.proposed) { <span class="badge badge-xs badge-warning">proposed</span> }
+            </li>
+          }
+        </ul>
+      </aside>
+    }
+
+    <div class="absolute bottom-4 left-4 flex flex-wrap gap-3 rounded-field bg-base-200/80 px-3 py-2 text-xs backdrop-blur">
+      @for (type of baseTypes; track type) {
+        <span class="flex items-center gap-1"><span class="type-dot" [style.--type-color]="typeColor(type)"></span>{{ type }}</span>
+      }
+      <span class="text-base-content/50">size = {{ sizeBy() }}</span>
+    </div>
+  </div>
+</section>

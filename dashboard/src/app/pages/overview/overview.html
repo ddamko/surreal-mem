@@ -32,8 +32,8 @@
       <h2 class="font-medium">Growth over 30 days</h2>
       <span class="text-xs text-base-content/50">new records per day</span>
     </div>
-    @if (timeline.value(); as series) {
-      <app-timeline-chart class="mt-3 block h-64" [series]="series" />
+    @if (timeline.hasValue()) {
+      <app-timeline-chart class="mt-3 block h-64" [series]="timeline.value()" />
     } @else {
       <div class="mt-3 h-64 animate-pulse rounded-box bg-base-300/40"></div>
     }

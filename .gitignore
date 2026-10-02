@@ -30,3 +30,6 @@ models/
 .vscode/
 .DS_Store
 inference.local.env
+
+# Playwright MCP artifacts
+.playwright-mcp/

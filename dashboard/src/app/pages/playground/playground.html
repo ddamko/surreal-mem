@@ -1,0 +1,113 @@
+<section class="grid h-full min-h-0 grid-cols-12">
+  <aside class="col-span-4 flex min-h-0 flex-col border-r border-base-300 p-5 xl:col-span-3">
+    <h1 class="text-lg font-semibold tracking-tight">Retrieval playground</h1>
+    <p class="mt-1 text-sm text-base-content/60">Ask what an agent would ask. The response is exactly what <span class="mono">memory_get_context</span> returns, with every score component visible.</p>
+    <textarea class="textarea textarea-bordered mt-4 h-28 w-full text-sm" placeholder="e.g. what shell does Derek prefer and where does he work" [value]="query()" (input)="query.set($any($event.target).value)" (keydown.control.enter)="run()"></textarea>
+    <div class="join mt-3">
+      <button class="btn btn-sm join-item" [class.btn-primary]="mode() === 'context'" (click)="mode.set('context')">Context pack</button>
+      <button class="btn btn-sm join-item" [class.btn-primary]="mode() === 'search'" (click)="mode.set('search')">Ranked search</button>
+    </div>
+    <div class="mt-4 space-y-3 text-sm">
+      <label class="flex items-center justify-between gap-3"><span>Space</span><span class="mono text-xs">{{ space.selected() || 'personal' }}</span></label>
+      <label class="flex items-center justify-between"><span>Include shared space</span><input type="checkbox" class="toggle toggle-sm" [checked]="includeShared()" (change)="includeShared.set($any($event.target).checked)" /></label>
+      <label class="flex items-center justify-between"><span>Lexical (BM25)</span><input type="checkbox" class="toggle toggle-sm" [checked]="lexical()" (change)="lexical.set($any($event.target).checked)" /></label>
+      <label class="flex items-center justify-between"><span>Vector (HNSW)</span><input type="checkbox" class="toggle toggle-sm" [checked]="vector()" (change)="vector.set($any($event.target).checked)" /></label>
+      <label class="flex items-center justify-between"><span>Graph expansion</span><input type="checkbox" class="toggle toggle-sm" [checked]="graph()" (change)="graph.set($any($event.target).checked)" /></label>
+      <label class="block"><div class="flex justify-between"><span>Token budget</span><span class="mono text-xs">{{ budget() }}</span></div><input type="range" min="100" max="6000" step="100" class="range range-xs" [value]="budget()" (input)="budget.set(+$any($event.target).value)" /></label>
+      <label class="block"><div class="flex justify-between"><span>Hops</span><span class="mono text-xs">{{ hops() }}</span></div><input type="range" min="0" max="3" step="1" class="range range-xs" [value]="hops()" (input)="hops.set(+$any($event.target).value)" /></label>
+      <label class="block"><div class="flex justify-between"><span>Candidates</span><span class="mono text-xs">{{ limit() }}</span></div><input type="range" min="5" max="60" step="5" class="range range-xs" [value]="limit()" (input)="limit.set(+$any($event.target).value)" /></label>
+    </div>
+    <button class="btn btn-primary mt-4" [disabled]="busy() || !query().trim()" (click)="run()">{{ busy() ? 'Retrieving…' : 'Retrieve' }}</button>
+    @if (history().length) {
+      <div class="mt-4 text-xs text-base-content/50">Recent</div>
+      <ul class="mt-1 space-y-1 text-sm">
+        @for (q of history(); track q) { <li><button class="link truncate" (click)="query.set(q); run()">{{ q }}</button></li> }
+      </ul>
+    }
+  </aside>
+
+  <div class="col-span-8 min-h-0 overflow-y-auto p-6 xl:col-span-9">
+    @if (error()) { <div class="alert alert-error text-sm">{{ error() }}</div> }
+    @if (pack(); as p) {
+      <div class="flex flex-wrap items-baseline gap-4">
+        <h2 class="text-lg font-semibold">Context pack</h2>
+        <span class="text-xs text-base-content/60">{{ p.tokens_used }} / {{ p.token_budget }} tokens · {{ p.dropped }} dropped</span>
+        @for (t of timings(); track t.k) { <span class="mono text-xs text-base-content/50">{{ t.k }} {{ t.v | number: '1.0-0' }}ms</span> }
+        <button class="btn btn-ghost btn-xs ml-auto" (click)="copyMarkdown()">Copy markdown</button>
+      </div>
+      <div class="mt-4 grid gap-6 lg:grid-cols-5">
+        <div class="lg:col-span-3">
+          @for (section of sections(); track section.title) {
+            <h3 class="mt-4 text-sm font-medium first:mt-0">{{ section.title }} <span class="text-base-content/50">{{ section.items.length }}</span></h3>
+            <ul class="mt-2 space-y-2">
+              @for (item of section.items; track item.id) {
+                <li class="panel p-3">
+                  <div class="text-sm">{{ item.text }}</div>
+                  <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                    <span class="mono text-base-content/60">{{ item.type }}</span>
+                    @for (v of item.via; track v) { <span class="badge badge-xs badge-outline">{{ v }}</span> }
+                    <span class="ml-auto mono">final {{ item.score.final | number: '1.3-3' }}</span>
+                  </div>
+                  <div class="mt-2 grid grid-cols-5 gap-1">
+                    @for (bar of scoreBars(item); track bar.label) {
+                      <div>
+                        <div class="h-1.5 rounded-full bg-base-300"><div class="h-1.5 rounded-full bg-primary" [style.width.%]="bar.value * 100"></div></div>
+                        <div class="mt-0.5 text-[10px] text-base-content/50">{{ bar.label }}</div>
+                      </div>
+                    }
+                  </div>
+                </li>
+              }
+            </ul>
+          } @empty {
+            <p class="text-sm text-base-content/60">Nothing in memory matched. Try another space or a broader question.</p>
+          }
+        </div>
+        <div class="lg:col-span-2">
+          <h3 class="text-sm font-medium">Linked entities</h3>
+          <ul class="mt-2 space-y-1 text-sm">
+            @for (l of p.linked; track l.id) {
+              <li class="flex items-center gap-2"><span class="type-dot" [style.--type-color]="typeColor(l.base_type)"></span>{{ l.name }}<span class="ml-auto text-xs text-base-content/50">{{ l.matched_on }}</span></li>
+            } @empty { <li class="text-xs text-base-content/50">No entity names recognised in the query.</li> }
+          </ul>
+          <h3 class="mt-4 text-sm font-medium">Expanded subgraph</h3>
+          <p class="text-xs text-base-content/60">{{ p.graphEntities }} entities · {{ p.graphRelationships }} relationships</p>
+          <h3 class="mt-4 text-sm font-medium">Markdown the agent receives</h3>
+          <pre class="mono mt-2 max-h-[28rem] overflow-auto whitespace-pre-wrap rounded-box border border-base-300 bg-base-200 p-3 text-xs">{{ p.markdown }}</pre>
+        </div>
+      </div>
+    }
+    @if (result(); as r) {
+      <div class="flex flex-wrap items-baseline gap-4">
+        <h2 class="text-lg font-semibold">Ranked results</h2>
+        <span class="text-xs text-base-content/60">{{ r.items.length }} items</span>
+        @for (t of timings(); track t.k) { <span class="mono text-xs text-base-content/50">{{ t.k }} {{ t.v | number: '1.0-0' }}ms</span> }
+      </div>
+      <ol class="mt-4 space-y-2">
+        @for (item of r.items; track item.id; let i = $index) {
+          <li class="panel flex gap-3 p-3">
+            <span class="mono w-6 text-right text-base-content/50">{{ i + 1 }}</span>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm">{{ item.text }}</div>
+              <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-base-content/60">
+                <span class="mono">{{ item.type }}</span>
+                @for (v of item.via; track v) { <span class="badge badge-xs badge-outline">{{ v }}</span> }
+                @if (item.score.lexical_rank) { <span>lexical #{{ item.score.lexical_rank }}</span> }
+                @if (item.score.vector_rank) { <span>vector #{{ item.score.vector_rank }} ({{ item.score.vector_similarity | number: '1.2-2' }})</span> }
+                <span class="ml-auto mono text-base-content">{{ item.score.final | number: '1.3-3' }}</span>
+              </div>
+            </div>
+          </li>
+        } @empty { <li class="text-sm text-base-content/60">No results.</li> }
+      </ol>
+    }
+    @if (!pack() && !result() && !error()) {
+      <div class="grid h-full place-items-center text-center text-sm text-base-content/60">
+        <div>
+          <div class="text-base text-base-content">Nothing retrieved yet</div>
+          <div class="mt-1">Type a question on the left and press Retrieve, or Ctrl+Enter.</div>
+        </div>
+      </div>
+    }
+  </div>
+</section>

@@ -24,6 +24,7 @@ export class Constellation {
     const el = this.host.nativeElement;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.domElement.style.display = 'block';
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
@@ -79,7 +80,7 @@ export class Constellation {
 
     const resize = (): void => {
       const { clientWidth: w, clientHeight: h } = el;
-      renderer.setSize(w, h, false);
+      renderer.setSize(w, h);
       camera.aspect = w / Math.max(1, h);
       camera.updateProjectionMatrix();
     };

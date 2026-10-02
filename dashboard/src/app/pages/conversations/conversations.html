@@ -1,0 +1,81 @@
+<section class="grid h-full min-h-0 grid-cols-12">
+  <aside class="col-span-4 flex min-h-0 flex-col border-r border-base-300 xl:col-span-3">
+    <div class="border-b border-base-300 p-4">
+      <h1 class="text-lg font-semibold tracking-tight">Conversations</h1>
+      <div class="mt-2 flex items-center gap-2 text-xs">
+        <select class="select select-xs select-bordered" [value]="agent()" (change)="agent.set($any($event.target).value)">
+          <option value="">All agents</option>
+          @for (a of agents(); track a) { <option [value]="a">{{ a }}</option> }
+        </select>
+        <span class="text-base-content/50">{{ list.hasValue() ? list.value().length : 0 }} shown</span>
+      </div>
+    </div>
+    <ul class="min-h-0 flex-1 overflow-y-auto">
+      @for (c of list.hasValue() ? list.value() : []; track c.id) {
+        <li>
+          <button class="block w-full border-b border-base-300/60 px-4 py-3 text-left hover:bg-base-200" [class.bg-base-200]="selected() === c.id" (click)="selected.set(c.id)">
+            <div class="flex items-center gap-2 text-sm">
+              <span class="truncate font-medium">{{ c.title || c.external_id || c.id }}</span>
+              <span class="ml-auto shrink-0 text-xs text-base-content/50">{{ relativeTime(c.last_message_at ?? c.started_at) }}</span>
+            </div>
+            <div class="mt-0.5 text-xs text-base-content/60">{{ c.agent_id }} · {{ c.space }} · {{ c.message_count }} messages · {{ c.status }}</div>
+          </button>
+        </li>
+      } @empty {
+        <li class="p-4 text-sm text-base-content/60">No conversations in this space yet.</li>
+      }
+    </ul>
+  </aside>
+
+  <div class="col-span-8 min-h-0 overflow-y-auto xl:col-span-9">
+    @if (detail.hasValue() && detail.value(); as d) {
+      <header class="sticky top-0 z-10 border-b border-base-300 bg-base-100/90 px-6 py-3 backdrop-blur">
+        <h2 class="text-base font-semibold">{{ d.conversation.title || d.conversation.external_id || d.conversation.id }}</h2>
+        <div class="text-xs text-base-content/60">
+          {{ d.conversation.agent_id }} · {{ d.conversation.space }} · started {{ d.conversation.started_at | date: 'medium' }} · <span class="mono">{{ d.conversation.id }}</span>
+          @if (d.traces.length) { · {{ d.traces.length }} reasoning trace{{ d.traces.length === 1 ? '' : 's' }} }
+        </div>
+      </header>
+      <ol class="space-y-4 px-6 py-5">
+        @for (m of d.messages; track m.id) {
+          <li class="grid grid-cols-12 gap-4">
+            <div class="col-span-8">
+              <div class="flex items-center gap-2 text-xs text-base-content/60">
+                <span class="mono">#{{ m.seq }}</span>
+                <span class="font-medium text-base-content">{{ m.role }}</span>
+                <span>{{ m.created_at | date: 'short' }}</span>
+                <span class="badge badge-xs" [class]="statusBadge(m.extraction_status ?? 'pending')">{{ m.extraction_status }}</span>
+                @if (m.extraction_status === 'queued' || m.extraction_status === 'running') {
+                  <button class="link" (click)="wait(m.id)">wait</button>
+                }
+              </div>
+              <div class="mt-1 whitespace-pre-wrap rounded-box border border-base-300 bg-base-200 p-3 text-sm" [class.border-l-4]="m.role === 'user'" [class.border-l-primary]="m.role === 'user'">{{ m.content }}</div>
+            </div>
+            <div class="col-span-4 pt-5">
+              @for (mention of mentionsFor(m.id); track mention.entity) {
+                <span class="badge badge-sm mr-1 mb-1 gap-1 border-base-300 bg-base-200"><span class="type-dot" [style.--type-color]="typeColor(mention.base_type)"></span>{{ mention.name }}</span>
+              } @empty {
+                @if (m.extraction_status === 'done') { <span class="text-xs text-base-content/40">no entities</span> }
+              }
+            </div>
+          </li>
+        }
+      </ol>
+      @if (d.traces.length) {
+        <section class="border-t border-base-300 px-6 py-5">
+          <h3 class="text-sm font-medium">Reasoning traces</h3>
+          <ul class="mt-2 space-y-2">
+            @for (t of d.traces; track t.id) {
+              <li class="panel p-3 text-sm">
+                <div class="flex items-center gap-2"><span class="badge badge-xs" [class.badge-success]="t.status === 'completed'" [class.badge-error]="t.status === 'failed'">{{ t.status }}</span>{{ t.task }}<span class="ml-auto text-xs text-base-content/50">{{ t.step_count }} steps</span></div>
+                @if (t.outcome) { <div class="mt-1 text-xs text-base-content/70">{{ t.outcome }}</div> }
+              </li>
+            }
+          </ul>
+        </section>
+      }
+    } @else {
+      <div class="grid h-full place-items-center text-sm text-base-content/60">Pick a conversation to read it alongside what was extracted from each turn.</div>
+    }
+  </div>
+</section>
