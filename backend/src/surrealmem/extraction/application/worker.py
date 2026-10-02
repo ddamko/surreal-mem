@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import random
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -57,15 +58,25 @@ class Worker:
         log.info("worker.stop", worker_id=self.worker_id, processed=self.processed)
 
     async def _loop(self, stop: asyncio.Event, slot: int) -> None:
+        worker = f"{self.worker_id}#{slot}"
         while not stop.is_set():
-            job = await self.jobs.claim(
-                f"{self.worker_id}#{slot}", kinds=self.kinds, lease_seconds=self.lease_seconds
-            )
+            try:
+                job = await self.jobs.claim(
+                    worker, kinds=self.kinds, lease_seconds=self.lease_seconds
+                )
+            except Exception as exc:
+                # Claim conflicts between concurrent slots are expected; back off with jitter.
+                log.warning("worker.claim_failed", worker=worker, error=str(exc)[:200])
+                await asyncio.sleep(self.poll_seconds * (0.5 + random.random()))
+                continue
             if job is None:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=self.poll_seconds)
                 continue
-            await self._process(job)
+            try:
+                await self._process(job)
+            except Exception as exc:
+                log.error("worker.process_crashed", job_id=job.id, error=str(exc)[:200])
 
     async def _process(self, job: Job) -> None:
         structlog.contextvars.bind_contextvars(

@@ -280,3 +280,64 @@ async def test_merge_moves_edges_facts_and_mentions(migrated_db: SurrealConnecti
     assert same_as == [{"loser": b.id, "winner": a.id}]
     with pytest.raises(ValueError, match="itself"):
         await k.merge_entities(a.id, a.id)
+
+
+async def test_worker_loop_survives_claim_errors() -> None:
+    import asyncio
+
+    from surrealmem.extraction.application import Worker
+    from surrealmem.extraction.domain import Job, JobStatus
+
+    calls = {"n": 0}
+
+    class FlakyStore:
+        async def claim(self, worker_id: str, *, kinds: Any, lease_seconds: int) -> Job | None:
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("Transaction conflict")
+            if calls["n"] == 2:
+                return Job(
+                    id="job:1",
+                    kind="noop",
+                    status=JobStatus.RUNNING,
+                    scheduled_at=datetime.now(UTC),
+                    created_at=datetime.now(UTC),
+                )
+            return None
+
+        async def heartbeat(self, job_id: str, *, lease_seconds: int) -> None: ...
+
+        async def complete(self, job_id: str, result: dict[str, Any]) -> Job:
+            return Job(
+                id=job_id,
+                kind="noop",
+                status=JobStatus.DONE,
+                scheduled_at=datetime.now(UTC),
+                created_at=datetime.now(UTC),
+            )
+
+        async def fail(self, job_id: str, error: str, *, retry_in_seconds: int) -> Job:
+            raise AssertionError("should not fail")
+
+        async def get(self, job_id: str) -> Job | None:
+            return None
+
+        async def counts(self) -> dict[str, int]:
+            return {}
+
+        async def recent(self, *, limit: int = 50, status: str | None = None) -> list[Job]:
+            return []
+
+    async def noop(job: Job) -> dict[str, Any]:
+        return {"ok": True}
+
+    worker = Worker(
+        jobs=FlakyStore(), handlers={"noop": noop}, worker_id="w", poll_seconds=0.01, concurrency=2
+    )
+    stop = asyncio.Event()
+    task = asyncio.create_task(worker.run_forever(stop))
+    await asyncio.sleep(0.3)
+    stop.set()
+    await task
+    assert worker.processed == 1
+    assert calls["n"] >= 3

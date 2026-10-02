@@ -1,10 +1,13 @@
 """Consumer side of the SurrealDB job queue: leased claims, completion, retry and dead-letter."""
 
+import asyncio
+import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, cast
 
 from surrealmem.extraction.domain import Job, JobStatus
 from surrealmem.shared.infrastructure.surreal.connection import (
+    ScriptError,
     SurrealConnection,
     run_one,
     run_script,
@@ -51,6 +54,19 @@ class SurrealJobStore:
     db: SurrealConnection
 
     async def claim(
+        self, worker_id: str, *, kinds: Sequence[str], lease_seconds: int
+    ) -> Job | None:
+        """Claim the next job; optimistic transaction conflicts are retried a few times."""
+        for attempt in range(4):
+            try:
+                return await self._claim_once(worker_id, kinds=kinds, lease_seconds=lease_seconds)
+            except ScriptError as exc:
+                if "conflict" not in str(exc).lower() or attempt == 3:
+                    raise
+                await asyncio.sleep(0.05 * (attempt + 1) + random.random() * 0.1)
+        return None
+
+    async def _claim_once(
         self, worker_id: str, *, kinds: Sequence[str], lease_seconds: int
     ) -> Job | None:
         lease = max(1, int(lease_seconds))
