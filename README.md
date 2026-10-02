@@ -18,6 +18,20 @@ open http://localhost:4200      # dashboard; API and MCP are proxied under the s
 Inference (llama-server for the instruct and embedding models) runs on the host GPU; see
 `ops/README.md` or point the `*_CONTAINER_*_BASE_URL` variables at any OpenAI-compatible endpoint.
 
+### Host units or containers, not both
+
+The container `api` publishes 8790 and the dashboard 4200, the same ports as the host
+`surrealmem-api` unit and the Angular dev server. Running both gives
+`failed to bind host port 0.0.0.0:8790: address already in use`. Pick one:
+
+- Containers: `just services-stop` (stops the host api and worker units), set
+  `LLAMA_BIND_HOST=0.0.0.0` in `ops/inference.local.env` and rerun `just inference` so containers can
+  reach the host llama-servers, then `just docker-up`.
+- Host units: `just docker-down` removes the container stack (SurrealDB included; its data stays in
+  `./data/surrealdb`), then `just up` and `just services`.
+- Side by side: set `SURREALMEM_API_PUBLISHED_PORT` and `DASHBOARD_PORT` in `.env`. Do not run two
+  workers against the same database unless both can reach inference.
+
 ## Quick start (local development)
 
 ```text

@@ -58,6 +58,7 @@ services:
   api:
     <<: *backend
     command: ["surrealmem", "api"]
+    # Same port as the host `surrealmem-api` unit: run one or the other, or change the published port.
     ports:
       - "${SURREALMEM_API_PUBLISHED_PORT:-8790}:8790"
     depends_on:
@@ -68,6 +69,9 @@ services:
   worker:
     <<: *backend
     command: ["surrealmem", "worker"]
+    # The image healthcheck probes the API port; the worker serves no HTTP.
+    healthcheck:
+      disable: true
     depends_on:
       migrate:
         condition: service_completed_successfully

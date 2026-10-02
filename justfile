@@ -112,7 +112,13 @@ docker-build:
 
 # Run the whole stack in containers (SurrealDB, migrate, API, worker, dashboard)
 docker-up:
-    mkdir -p data/surrealdb && docker compose --profile full up -d --build
+    mkdir -p data/surrealdb
+    docker compose --profile full up -d --build || { \
+      echo; \
+      echo "docker-up failed. If the error is 'address already in use' on 8790 or 4200, the host"; \
+      echo "units or dev servers hold those ports: run 'just services-stop' first, or set"; \
+      echo "SURREALMEM_API_PUBLISHED_PORT / DASHBOARD_PORT in .env. See README 'Host units or containers'."; \
+      exit 1; }
 
 # Stop the container stack
 docker-down:
