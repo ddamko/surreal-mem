@@ -1,3 +1,4 @@
+# pyright: reportUnknownArgumentType=false, reportUnknownVariableType=false, reportUnknownMemberType=false, reportAttributeAccessIssue=false
 """Graph metrics (networkx) and embedding projections (UMAP) materialized onto records.
 
 See ADR-0020 and ADR-0022.
@@ -172,15 +173,16 @@ class ComputeProjection:
 
 
 def _coords(result: Any) -> list[list[float]]:
-    """Normalize whatever the reducer returned (ndarray, tuple, sparse) to a list of rows."""
+    """Normalize whatever the reducer returned (ndarray, tuple, sparse) to a list of rows.
+
+    numpy and umap are untyped here, hence the relaxed pyright rules for this module.
+    """
     import numpy as np
 
-    array: Any = result[0] if isinstance(result, tuple) else result
+    array = result[0] if isinstance(result, tuple) else result
     if hasattr(array, "toarray"):
         array = array.toarray()
-    matrix: Any = np.asarray(array, dtype=float)
-    rows: Any = matrix.tolist()
-    return cast("list[list[float]]", rows)
+    return cast("list[list[float]]", np.asarray(array, dtype=float).tolist())
 
 
 def _finite(value: float) -> float:
