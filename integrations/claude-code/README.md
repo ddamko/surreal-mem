@@ -17,7 +17,7 @@ Both read the repository `.env` (SurrealDB URL, inference endpoints). Override t
 ## Install
 
 ```text
-claude plugin add /home/derek/code/vibe/surreal-mem/integrations/claude-code   # or: /plugin install from a local marketplace
+claude plugin add /path/to/surreal-mem/integrations/claude-code   # or: /plugin install from a local marketplace
 ```
 
 Requirements: `just up` (SurrealDB), `just inference` (embeddings for retrieval), and a running
