@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8790
     api_token: SecretStr = SecretStr("change-me")
+    dashboard_dist: Path | None = _REPO_ROOT / "dashboard" / "dist" / "dashboard" / "browser"
 
     # Inference
     llm_base_url: str = "http://127.0.0.1:8081/v1"

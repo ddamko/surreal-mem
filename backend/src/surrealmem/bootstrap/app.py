@@ -7,7 +7,10 @@ from fastapi import APIRouter, FastAPI
 from mcp.server.transport_security import TransportSecuritySettings
 
 from surrealmem import __version__
+from surrealmem.analytics.adapters.http.router import router as analytics_router
+from surrealmem.analytics.adapters.surreal.queries import SurrealAnalyticsQueries
 from surrealmem.bootstrap.container import AppContainer, build_container
+from surrealmem.bootstrap.events import router as events_router
 from surrealmem.bootstrap.health import router as health_router
 from surrealmem.bootstrap.mcp_server import build_mcp_server
 from surrealmem.bootstrap.stats import router as stats_router
@@ -25,6 +28,7 @@ from surrealmem.shared.infrastructure.http.errors import register_domain_errors
 from surrealmem.shared.infrastructure.http.problem_details import register_problem_details
 from surrealmem.shared.infrastructure.http.request_id import RequestIdMiddleware
 from surrealmem.shared.infrastructure.logging import configure_logging
+from surrealmem.shared.infrastructure.surreal.live import LiveRelay
 
 if TYPE_CHECKING:
     from collections.abc import AsyncGenerator
@@ -65,6 +69,9 @@ def bind_container(app: FastAPI, container: AppContainer) -> None:
     app.state.retriever = services.retriever
     app.state.job_store = services.extraction.job_store
     app.state.job_queue = services.jobs
+    app.state.analytics_queries = SurrealAnalyticsQueries(container.db)
+    if not hasattr(app.state, "live_relay"):
+        app.state.live_relay = LiveRelay(container.db)
 
 
 def create_app(
@@ -100,9 +107,13 @@ def create_app(
             embedder = build_embedder(resolved)
             built = await build_container(resolved, embedder=embedder)
             bind_container(app, built)
+            relay: LiveRelay = app.state.live_relay
+            if not resolved.surreal_is_embedded:
+                await relay.start()
             try:
                 yield
             finally:
+                await relay.stop()
                 await embedder.close()
                 await built.close()
 
@@ -119,8 +130,10 @@ def create_app(
     register_problem_details(app)
     register_domain_errors(app)
     app.include_router(health_router)
+    app.include_router(events_router)
 
     api = APIRouter(prefix=API_PREFIX)
+    api.include_router(analytics_router)
     api.include_router(conversations_router)
     api.include_router(knowledge_router)
     api.include_router(retrieval_router)
@@ -130,4 +143,9 @@ def create_app(
     app.include_router(api)
     app.mount("/mcp", mcp_app)
     app.state.mcp = mcp
+    dist = resolved.dashboard_dist
+    if dist is not None and dist.is_dir():
+        from fastapi.staticfiles import StaticFiles
+
+        app.mount("/", StaticFiles(directory=str(dist), html=True), name="dashboard")
     return app

@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from fastapi import Request
     from starlette.responses import Response
 
-PUBLIC_PREFIXES = ("/health", "/docs", "/openapi.json", "/redoc")
+PUBLIC_PREFIXES = ("/health", "/docs", "/openapi.json", "/redoc", "/api/v1/events")
 
 
 class BearerAuthMiddleware(BaseHTTPMiddleware):
@@ -30,7 +30,10 @@ class BearerAuthMiddleware(BaseHTTPMiddleware):
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
         path = request.url.path
-        if not self._token or path.startswith(PUBLIC_PREFIXES) or request.method == "OPTIONS":
+        protected = path.startswith(("/api/", "/mcp"))
+        if not self._token or not protected or path.startswith(PUBLIC_PREFIXES):
+            return await call_next(request)
+        if request.method == "OPTIONS":
             return await call_next(request)
         header = request.headers.get("authorization", "")
         scheme, _, presented = header.partition(" ")

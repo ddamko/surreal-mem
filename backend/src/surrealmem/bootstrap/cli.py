@@ -334,3 +334,14 @@ def seed_synthetic(
             await container.close()
 
     typer.echo(asyncio.run(_run()))
+
+
+@app.command()
+def openapi() -> None:
+    """Print the OpenAPI schema (used to generate the dashboard's TypeScript types)."""
+    import json
+
+    from surrealmem.bootstrap.app import create_app
+
+    settings = Settings(_env_file=None)  # pyright: ignore[reportCallIssue]
+    typer.echo(json.dumps(create_app(settings=settings).openapi(), indent=2))
