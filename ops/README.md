@@ -5,7 +5,8 @@ Inference operations (ADR-0028): the two llama-server processes surrealmem talks
 | File | Purpose |
 |---|---|
 | `inference.env` | Model repos, file names, ports and the llama-server path. Override in `inference.local.env`. |
-| `systemd/*.service.tmpl` | User unit templates rendered by `scripts/inference.nu` into `~/.config/systemd/user/`. |
+| `systemd/surrealmem-llm|embed.service.tmpl` | llama-server unit templates rendered by `scripts/inference.nu`. |
+| `systemd/surrealmem-api|worker.service.tmpl` | API and worker unit templates rendered by `scripts/services.nu` (`just services`). |
 
 ```text
 just llama-build # clone llama.cpp and build llama-server with HIP for LLAMA_ARCH (gfx1151)

@@ -7,7 +7,14 @@ implement those ports on top of the conversations and knowledge slices.
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from surrealmem.conversations.domain import ConversationRepository, ExtractionStatus
+from surrealmem.conversations.application import AppendMessage, StartConversation
+from surrealmem.conversations.domain import (
+    ConversationRepository,
+    ExtractionStatus,
+    NewConversation,
+    NewMessage,
+    Role,
+)
 from surrealmem.extraction.domain import ExtractionContext, WrittenEntity
 from surrealmem.knowledge.domain import (
     BaseType,
@@ -24,6 +31,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from datetime import datetime
 
+    from surrealmem.curation.domain import ImportedConversation
     from surrealmem.knowledge.application import AddFact, AddRelationship, UpsertEntity
 
 log = get_logger("surrealmem.glue")
@@ -188,3 +196,46 @@ class KnowledgeMemoryWriter:
             fact.id, message_id, extractor=extractor, model=self.model_name, confidence=confidence
         )
         return fact.id
+
+
+@dataclass(slots=True)
+class ConversationImportSink:
+    """Writes imported conversations through the normal use cases (so extraction jobs queue up)."""
+
+    conversations: ConversationRepository
+    start: StartConversation
+    append: AppendMessage
+
+    async def import_conversation(
+        self, conversation: ImportedConversation, *, space: str, agent_id: str, extract: bool
+    ) -> tuple[str, int, bool]:
+        existing = await self.conversations.find_external(agent_id, conversation.external_id)
+        if existing is not None:
+            return existing.id, 0, False
+        created = await self.start(
+            NewConversation(
+                space=space,
+                agent_id=agent_id,
+                title=conversation.title,
+                external_id=conversation.external_id,
+                metadata=conversation.metadata,
+            )
+        )
+        append = AppendMessage(self.conversations, self.append.jobs, extract=extract)
+        written = 0
+        for message in conversation.messages:
+            try:
+                role = Role(message.role)
+            except ValueError:
+                role = Role.USER
+            await append(
+                created.id,
+                NewMessage(
+                    role=role,
+                    content=message.content,
+                    created_at=message.created_at,
+                    metadata=message.metadata,
+                ),
+            )
+            written += 1
+        return created.id, written, True

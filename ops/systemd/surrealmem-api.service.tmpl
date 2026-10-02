@@ -1,0 +1,22 @@
+[Unit]
+Description=surrealmem API (REST + MCP over HTTP)
+Documentation=file://{{REPO}}/docs/architecture.md
+After=graphical-session.target surrealmem-embed.service
+Wants=surrealmem-embed.service
+PartOf=graphical-session.target
+
+[Service]
+Type=exec
+WorkingDirectory={{REPO}}/backend
+ExecStart={{UV}} run surrealmem api
+ExecStartPost=/usr/bin/curl -fsS --retry 60 --retry-delay 2 --retry-connrefused --retry-all-errors http://127.0.0.1:{{API_PORT}}/health/live
+TimeoutStartSec=180
+TimeoutStopSec=20
+Restart=on-failure
+RestartSec=5s
+KillMode=mixed
+KillSignal=SIGTERM
+Slice=background-graphical.slice
+
+[Install]
+WantedBy=graphical-session.target

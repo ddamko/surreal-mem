@@ -103,3 +103,15 @@ class FakeExtractor:
             if needle in context.content:
                 return result
         return ExtractionResult()
+
+
+class FakeSummarizer:
+    """Deterministic summarizer: joins the first words of each message."""
+
+    @property
+    def model_name(self) -> str:
+        return "fake-summarizer"
+
+    async def summarize(self, conversation: Any) -> str:
+        heads = [content.split(".")[0] for _role, content in conversation.messages]
+        return "Summary: " + "; ".join(heads) + "."

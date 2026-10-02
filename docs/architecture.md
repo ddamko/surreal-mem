@@ -68,23 +68,61 @@ superseded facts are invalidated and low-salience memories are archived.
 4. Facts are embedded, written, and reconciled against existing facts on the same subject and
    predicate: contradictions invalidate the predecessor and record `superseded_by`.
 5. `related_to` edges, `mentions` and `extracted_from` provenance are written in the same transaction.
-6. *(planned)* A reflection job runs when a conversation goes idle: summaries, observations,
-   contradiction flags, salience updates, archiving.
+6. Background maintenance (Phase 5), enqueued by the scheduler inside `surrealmem worker` and
+   runnable on demand (`just job <kind>`, `POST /api/v1/jobs`):
+   - `reflect_sweep` enqueues `reflect` for idle conversations (summaries via the local model into
+     `summary`), flags contradictions among functional facts into `observation`, refreshes salience,
+     archives stale never-accessed facts. Nothing is deleted.
+   - `metrics` materializes PageRank, degree, sampled betweenness, clustering and Louvain
+     communities onto `entity.metrics` (networkx).
+   - `project` writes 2D and 3D UMAP coordinates onto `entity.projection` and `fact.projection`
+     (PCA fallback below ten points).
+   - `salience` recomputes fact and entity salience alone.
 
 The extraction slice never imports conversations or knowledge: it defines `MessageSource` and
 `MemoryWriter` ports, implemented in `bootstrap/glue.py` on top of the other slices.
 
-## 4. Read path (planned, Phase 4)
+## 4. Read path (built in Phase 4)
 
 `get_context(query, space, budget)`:
 
-1. Full-text (BM25) and vector (HNSW) search over facts, messages, entity descriptions and summaries,
-   fused with SurrealDB's reciprocal rank fusion, filtered by space.
+1. Full-text (BM25, one OR-ed predicate per query term because `@@` is AND over terms) and vector
+   (HNSW) search over facts, messages, entities, summaries and observations, filtered by space, fused
+   in Python with reciprocal rank fusion (identical behaviour on the embedded test engine and the
+   server; SurrealDB 3.3's native `search::rrf` is a later optimization).
 2. Entity linking by full-text match on names and aliases; expansion over one or two `related_to`
    hops, attaching currently valid facts.
 3. Rescoring by recency, confidence and salience; trimming to the token budget.
-4. Output: typed JSON sections (facts, entities with relations, preferences, conversation summary,
-   relevant traces) plus rendered markdown; each item carries its score components.
+4. Output: `ContextPack` with typed sections (preferences, facts, entities, summaries, observations,
+   messages), the linked entities and expanded subgraph, rendered markdown, token accounting and
+   per-stage timings; each item carries a `ScoreBreakdown`. Messages of the caller's own
+   conversation are excluded. Recalled facts get `access_count += 1` (salience signal).
+
+## 4a. Interfaces (Phase 4)
+
+| Surface | Where | Notes |
+|---|---|---|
+| REST | `/api/v1/...` (`*/adapters/http/router.py`, `bootstrap/stats.py`) | Bearer token (`SURREALMEM_API_TOKEN`), RFC 9457 errors, OpenAPI at `/openapi.json` feeds the dashboard's generated types. |
+| MCP over HTTP | `/mcp/` mounted in the API (stateless Streamable HTTP, same bearer token) | For Hermes and remote clients. |
+| MCP over stdio | `surrealmem mcp` | For Claude Code; talks to SurrealDB directly, no API needed. |
+| Claude Code plugin | `integrations/claude-code/` | `.mcp.json` + hooks (`surrealmem hook session-start|user-prompt-submit|stop`). Conversations are keyed `claude-code:<session_id>` in space `project:<cwd name>`. |
+
+Tool surface (`bootstrap/mcp_server.py`): memory_store_message, memory_get_conversation,
+memory_list_conversations, memory_get_context, memory_search, memory_add_entity, memory_get_entity,
+memory_create_relationship, memory_add_fact, memory_add_preference, memory_export_graph,
+memory_start_trace, memory_record_step, memory_complete_trace, memory_get_trace,
+memory_wait_for_extraction, graph_query (SELECT/RETURN/INFO only); resources `memory://graph/stats`,
+`memory://entities`, `memory://context/{conversation_id}`; prompts `memory_conversation`,
+`memory_review`.
+
+## 4b. Seeding and import (Phase 5)
+
+`surrealmem import hindsight --bank hermes --space personal` reads a Hindsight bank over its REST
+API (never writes): retained documents become conversations with their original transcripts, and
+extracted memories become per-session conversations of user messages carrying Hindsight's metadata.
+Both flow through the normal extraction queue, so entities are typed and resolved by our pipeline
+with provenance to the imported messages. `surrealmem seed synthetic` loads a deterministic
+fictional dataset for CI and screenshots.
 
 ## 5. Code layout
 

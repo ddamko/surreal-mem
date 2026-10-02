@@ -113,10 +113,38 @@ inference-status:
 inference-stop:
     nu scripts/inference.nu stop
 
+# Install and start the API and worker as systemd user units
+services:
+    nu scripts/services.nu install
+
+# API and worker unit status
+services-status:
+    nu scripts/services.nu status
+
+# Stop and disable the API and worker units
+services-stop:
+    nu scripts/services.nu stop
+
+# Tail a service journal: just logs worker | just logs api
+logs-service which="worker":
+    nu scripts/services.nu logs {{which}}
+
 # Run the worker once over the queued jobs
 worker-once:
     cd {{backend}}; uv run surrealmem worker --once
 
-# Seed the database (Phase 5)
-seed:
-    print "seed: defined in Phase 5"
+# Load the fictional demo dataset (space "demo")
+seed count="5":
+    cd {{backend}}; uv run surrealmem seed synthetic --space demo --count {{count}}
+
+# Read-only import of a Hindsight bank (default: hermes -> personal)
+import-hindsight bank="hermes" space="personal":
+    cd {{backend}}; uv run surrealmem import hindsight --bank {{bank}} --space {{space}}
+
+# Enqueue a maintenance job: reflect_sweep | salience | metrics | project
+job kind:
+    cd {{backend}}; uv run surrealmem jobs enqueue {{kind}}
+
+# Job counts by status
+jobs:
+    cd {{backend}}; uv run surrealmem jobs status

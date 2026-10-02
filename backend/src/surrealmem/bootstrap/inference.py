@@ -8,6 +8,7 @@ from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.openai import OpenAIProvider
 
 from surrealmem.extraction.adapters.pydantic_ai.extractor import PydanticAIExtractor
+from surrealmem.extraction.adapters.pydantic_ai.summarizer import PydanticAISummarizer
 from surrealmem.shared.infrastructure.inference.embedder import OpenAIEmbedder
 
 if TYPE_CHECKING:
@@ -62,4 +63,10 @@ def build_extractor(settings: Settings) -> PydanticAIExtractor:
         extractor_name=f"llm:{settings.llm_model}",
         temperature=settings.llm_temperature,
         max_tokens=settings.llm_max_tokens,
+    )
+
+
+def build_summarizer(settings: Settings) -> PydanticAISummarizer:
+    return PydanticAISummarizer(
+        model=build_extraction_model(settings), name=f"llm:{settings.llm_model}"
     )

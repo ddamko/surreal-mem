@@ -63,11 +63,11 @@ async def _seed(db: SurrealConnection, embedder: FakeEmbedder) -> dict[str, str]
     )
     await k.add_fact(
         NewFact(
-            statement="The API listens on port 8787.",
+            statement="The API listens on port 8790.",
             space="work",
             subject_id=nu.id,
             kind="HAS_ATTRIBUTE",
-            object_literal="8787",
+            object_literal="8790",
         )
     )
     conversation = await services.conversations.start(NewConversation(space="work", agent_id="t"))
@@ -119,14 +119,14 @@ async def test_vector_only_leg_reaches_exact_statement(migrated_db: SurrealConne
     # FakeEmbedder is hash based: the exact statement text embeds identically to the stored fact.
     result = await retriever.search(
         RetrievalQuery(
-            text="The API listens on port 8787.",
+            text="The API listens on port 8790.",
             space="work",
             lexical=False,
             graph=False,
             memory_types=[MemoryType.FACT],
         )
     )
-    assert result.items[0].text == "The API listens on port 8787."
+    assert result.items[0].text == "The API listens on port 8790."
     assert result.items[0].score.vector_similarity is not None
     assert result.items[0].score.vector_similarity > 0.99
     assert result.items[0].via == ["vector"]

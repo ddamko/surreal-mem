@@ -144,9 +144,10 @@ def api(
 def worker(
     once: Annotated[bool, typer.Option(help="Process available jobs, then exit")] = False,
     worker_id: Annotated[str | None, typer.Option(help="Override the worker id")] = None,
+    schedule: Annotated[bool, typer.Option(help="Also enqueue the periodic jobs")] = True,
 ) -> None:
-    """Run the background worker (extraction now; reflection, metrics, projection later)."""
-    from surrealmem.bootstrap.inference import build_embedder, build_extractor
+    """Run the background worker: extraction, reflection, salience, metrics and projection jobs."""
+    from surrealmem.bootstrap.inference import build_embedder, build_extractor, build_summarizer
 
     settings = _settings()
     if worker_id:
@@ -155,20 +156,80 @@ def worker(
     async def _run() -> int:
         embedder = build_embedder(settings)
         container = await build_container(
-            settings, embedder=embedder, extractor=build_extractor(settings)
+            settings,
+            embedder=embedder,
+            extractor=build_extractor(settings),
+            summarizer=build_summarizer(settings),
         )
-        assert container.services.extraction.worker is not None
+        extraction = container.services.extraction
+        assert extraction.worker is not None
         try:
             if once:
-                return await container.services.extraction.worker.run_once()
-            await container.services.extraction.worker.run_forever()
-            return container.services.extraction.worker.processed
+                return await extraction.worker.run_once()
+            stop = asyncio.Event()
+            tasks = [asyncio.create_task(extraction.worker.run_forever(stop))]
+            if schedule:
+                tasks.append(asyncio.create_task(extraction.scheduler.run_forever(stop)))
+            try:
+                await asyncio.gather(*tasks)
+            finally:
+                stop.set()
+            return extraction.worker.processed
         finally:
             await embedder.close()
             await container.close()
 
     processed = asyncio.run(_run())
     typer.echo(f"processed {processed} job(s)")
+
+
+jobs_app = typer.Typer(no_args_is_help=True, help="Job queue")
+app.add_typer(jobs_app, name="jobs")
+
+
+@jobs_app.command("enqueue")
+def jobs_enqueue(
+    kind: Annotated[
+        str, typer.Argument(help="reflect_sweep | salience | metrics | project | reflect")
+    ],
+    conversation_id: Annotated[str | None, typer.Option(help="For reflect")] = None,
+) -> None:
+    """Enqueue a background job (the worker runs it)."""
+    from surrealmem.shared.application import JobRequest
+
+    settings = _settings()
+
+    async def _run() -> str:
+        container = await build_container(settings)
+        try:
+            payload: dict[str, object] = {}
+            if conversation_id:
+                payload["conversation_id"] = conversation_id
+            return await container.services.jobs.enqueue(
+                JobRequest(
+                    kind=kind, payload=payload, dedupe_key=f"manual:{kind}:{conversation_id or ''}"
+                )
+            )
+        finally:
+            await container.close()
+
+    typer.echo(asyncio.run(_run()))
+
+
+@jobs_app.command("status")
+def jobs_status() -> None:
+    """Show job counts by status."""
+    settings = _settings()
+
+    async def _run() -> dict[str, int]:
+        container = await build_container(settings)
+        try:
+            return await container.services.extraction.job_store.counts()
+        finally:
+            await container.close()
+
+    for status, n in sorted(asyncio.run(_run()).items()):
+        typer.echo(f"{status:8} {n}")
 
 
 @app.command()
@@ -202,3 +263,74 @@ def mcp(
             await container.close()
 
     asyncio.run(_serve())
+
+
+import_app = typer.Typer(no_args_is_help=True, help="Import memories from other systems")
+app.add_typer(import_app, name="import")
+
+
+@import_app.command("hindsight")
+def import_hindsight(
+    bank: Annotated[str, typer.Option(help="Hindsight bank id, e.g. hermes")] = "hermes",
+    space: Annotated[str, typer.Option(help="Target space")] = "personal",
+    base_url: Annotated[str, typer.Option(help="Hindsight API")] = "http://127.0.0.1:8888",
+    documents: Annotated[bool, typer.Option(help="Import retained documents (transcripts)")] = True,
+    memories: Annotated[
+        bool, typer.Option(help="Import extracted memories grouped by session")
+    ] = True,
+    extract: Annotated[
+        bool, typer.Option(help="Queue extraction jobs for imported messages")
+    ] = True,
+    limit: Annotated[int | None, typer.Option(help="Stop after N conversations")] = None,
+) -> None:
+    """Read-only import of a Hindsight bank into conversations (ADR-0029)."""
+    from surrealmem.curation.adapters.hindsight.client import HindsightClient
+    from surrealmem.curation.adapters.hindsight.importer import HindsightImporter
+
+    settings = _settings()
+
+    async def _run() -> str:
+        container = await build_container(settings)
+        client = HindsightClient(base_url=base_url)
+        try:
+            importer = HindsightImporter(client, container.services.curation.import_sink)
+            report = await importer.run(
+                bank,
+                space=space,
+                include_documents=documents,
+                include_memories=memories,
+                extract=extract,
+                limit=limit,
+            )
+            return report.model_dump_json(indent=2)
+        finally:
+            await client.close()
+            await container.close()
+
+    typer.echo(asyncio.run(_run()))
+
+
+seed_app = typer.Typer(no_args_is_help=True, help="Seed data")
+app.add_typer(seed_app, name="seed")
+
+
+@seed_app.command("synthetic")
+def seed_synthetic(
+    space: Annotated[str, typer.Option()] = "demo",
+    count: Annotated[int, typer.Option(help="Conversations to generate")] = 5,
+    extract: Annotated[bool, typer.Option(help="Queue extraction jobs")] = True,
+) -> None:
+    """Load the fictional dataset used for CI and screenshots."""
+    settings = _settings()
+
+    async def _run() -> str:
+        container = await build_container(settings)
+        try:
+            report = await container.services.curation.synthetic.run(
+                space=space, count=count, extract=extract
+            )
+            return report.model_dump_json(indent=2)
+        finally:
+            await container.close()
+
+    typer.echo(asyncio.run(_run()))

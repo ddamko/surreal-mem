@@ -64,6 +64,7 @@ def bind_container(app: FastAPI, container: AppContainer) -> None:
     )
     app.state.retriever = services.retriever
     app.state.job_store = services.extraction.job_store
+    app.state.job_queue = services.jobs
 
 
 def create_app(

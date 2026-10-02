@@ -247,11 +247,11 @@ async def test_invalidate_fact(graph: Graph) -> None:
     derek, _ = await graph.upsert(NewEntity(name="Derek", base_type=BaseType.PERSON))
     fact = await graph.add_fact(
         NewFact(
-            statement="Derek's API listens on port 8787.",
+            statement="Derek's API listens on port 8790.",
             space="work",
             subject_id=derek.id,
             kind="HAS_ATTRIBUTE",
-            object_literal="8787",
+            object_literal="8790",
         )
     )
     gone = await InvalidateFact(graph.facts)(fact.id, reason="port changed")

@@ -1,0 +1,20 @@
+[Unit]
+Description=surrealmem background worker (extraction, reflection, metrics, projection)
+Documentation=file://{{REPO}}/docs/architecture.md
+After=graphical-session.target surrealmem-llm.service surrealmem-embed.service
+Wants=surrealmem-llm.service surrealmem-embed.service
+PartOf=graphical-session.target
+
+[Service]
+Type=exec
+WorkingDirectory={{REPO}}/backend
+ExecStart={{UV}} run surrealmem worker
+TimeoutStopSec=90
+Restart=on-failure
+RestartSec=10s
+KillMode=mixed
+KillSignal=SIGTERM
+Slice=background-graphical.slice
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,20 +1,54 @@
 """REST routes for the job queue and extraction status."""
 
 import asyncio
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from surrealmem.extraction.domain import Job, JobStore
+from surrealmem.shared.application import JobQueue, JobRequest
 
 
 def _store(request: Request) -> JobStore:
     return request.app.state.job_store
 
 
+def _queue(request: Request) -> JobQueue:
+    return request.app.state.job_queue
+
+
 StoreDep = Annotated[JobStore, Depends(_store)]
+QueueDep = Annotated[JobQueue, Depends(_queue)]
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+ENQUEUEABLE = ("reflect_sweep", "salience", "metrics", "project", "reflect")
+
+
+class EnqueueBody(BaseModel):
+    kind: str
+    payload: dict[str, Any] = Field(default_factory=dict[str, Any])
+    priority: int = 5
+
+
+class Enqueued(BaseModel):
+    job_id: str
+
+
+@router.post("", status_code=202)
+async def enqueue_job(body: EnqueueBody, queue: QueueDep) -> Enqueued:
+    """Queue a maintenance job for the worker (Operations page)."""
+    if body.kind not in ENQUEUEABLE:
+        raise ValueError(f"kind must be one of {ENQUEUEABLE}")
+    job_id = await queue.enqueue(
+        JobRequest(
+            kind=body.kind,
+            payload=body.payload,
+            priority=body.priority,
+            dedupe_key=f"manual:{body.kind}:{body.payload.get('conversation_id', '')}",
+        )
+    )
+    return Enqueued(job_id=job_id)
 
 
 class JobCounts(BaseModel):

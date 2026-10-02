@@ -32,7 +32,7 @@ class Settings(BaseSettings):
 
     # API
     api_host: str = "127.0.0.1"
-    api_port: int = 8787
+    api_port: int = 8790
     api_token: SecretStr = SecretStr("change-me")
 
     # Inference
@@ -59,10 +59,16 @@ class Settings(BaseSettings):
     resolution_auto_merge: float = Field(default=0.92, ge=0.0, le=1.0)
     resolution_review: float = Field(default=0.80, ge=0.0, le=1.0)
 
-    # Worker
+    # Worker and scheduler
     worker_id: str | None = None
     worker_poll_seconds: float = 1.0
     worker_lease_seconds: int = 300
+    schedule_reflect_sweep_seconds: int = 600
+    schedule_salience_seconds: int = 1800
+    schedule_metrics_seconds: int = 1800
+    schedule_project_seconds: int = 3600
+    reflection_idle_seconds: int = 900
+    reflection_min_new_messages: int = 4
 
     # Observability
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"

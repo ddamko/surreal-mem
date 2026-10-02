@@ -5,7 +5,13 @@ import socket
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from surrealmem.bootstrap.glue import ConversationMessageSource, KnowledgeMemoryWriter
+from surrealmem.analytics.adapters.surreal.repository import SurrealAnalyticsRepository
+from surrealmem.analytics.application import ComputeGraphMetrics, ComputeProjection
+from surrealmem.bootstrap.glue import (
+    ConversationImportSink,
+    ConversationMessageSource,
+    KnowledgeMemoryWriter,
+)
 from surrealmem.conversations.adapters.surreal.repository import SurrealConversationRepository
 from surrealmem.conversations.application import (
     AppendMessage,
@@ -14,8 +20,16 @@ from surrealmem.conversations.application import (
     ListConversations,
     StartConversation,
 )
+from surrealmem.curation.application import SyntheticGenerator
 from surrealmem.extraction.adapters.surreal.jobs import SurrealJobStore
-from surrealmem.extraction.application import ExtractMessage, Worker
+from surrealmem.extraction.adapters.surreal.reflection import SurrealReflectionRepository
+from surrealmem.extraction.application import (
+    ExtractMessage,
+    ReflectConversation,
+    ReflectionSweep,
+    Scheduler,
+    Worker,
+)
 from surrealmem.knowledge.adapters.surreal.entities import SurrealEntityRepository
 from surrealmem.knowledge.adapters.surreal.facts import SurrealFactRepository
 from surrealmem.knowledge.adapters.surreal.merging import (
@@ -50,6 +64,7 @@ from surrealmem.shared.infrastructure.surreal.jobs import SurrealJobQueue
 
 if TYPE_CHECKING:
     from surrealmem.extraction.domain import Extractor, Job
+    from surrealmem.extraction.domain.reflection import Summarizer
     from surrealmem.shared.application import Embedder
     from surrealmem.shared.infrastructure.surreal.connection import SurrealConnection
 
@@ -86,6 +101,16 @@ class ExtractionServices:
     job_store: SurrealJobStore
     extract_message: ExtractMessage | None
     worker: Worker | None
+    scheduler: Scheduler
+    reflection_sweep: ReflectionSweep
+    reflect_conversation: ReflectConversation | None
+
+
+@dataclass(slots=True)
+class AnalyticsServices:
+    repository: SurrealAnalyticsRepository
+    metrics: ComputeGraphMetrics
+    projection: ComputeProjection
 
 
 @dataclass(slots=True)
@@ -99,6 +124,12 @@ class ReasoningServices:
 
 
 @dataclass(slots=True)
+class CurationServices:
+    import_sink: ConversationImportSink
+    synthetic: SyntheticGenerator
+
+
+@dataclass(slots=True)
 class Services:
     jobs: SurrealJobQueue
     conversations: ConversationServices
@@ -106,6 +137,8 @@ class Services:
     extraction: ExtractionServices
     reasoning: ReasoningServices
     retriever: Retriever
+    analytics: AnalyticsServices
+    curation: CurationServices
 
 
 def default_worker_id() -> str:
@@ -118,6 +151,7 @@ def build_services(
     settings: Settings | None = None,
     embedder: Embedder | None = None,
     extractor: Extractor | None = None,
+    summarizer: Summarizer | None = None,
 ) -> Services:
     settings = settings or Settings(_env_file=None)  # pyright: ignore[reportCallIssue]
     jobs = SurrealJobQueue(db)
@@ -154,8 +188,67 @@ def build_services(
     )
 
     job_store = SurrealJobStore(db)
+    analytics_repo = SurrealAnalyticsRepository(db)
+    analytics = AnalyticsServices(
+        repository=analytics_repo,
+        metrics=ComputeGraphMetrics(analytics_repo, analytics_repo, analytics_repo),
+        projection=ComputeProjection(analytics_repo, analytics_repo),
+    )
+    reflection_repo = SurrealReflectionRepository(db)
+    reflection_sweep = ReflectionSweep(
+        reflection_repo,
+        reflection_repo,
+        jobs,
+        idle_seconds=settings.reflection_idle_seconds,
+        min_new_messages=settings.reflection_min_new_messages,
+    )
+    reflect_conversation: ReflectConversation | None = None
+    if summarizer is not None:
+        reflect_conversation = ReflectConversation(
+            reflection_repo, reflection_repo, summarizer, embedder
+        )
+    scheduler = Scheduler(
+        jobs,
+        intervals_seconds={
+            "reflect_sweep": settings.schedule_reflect_sweep_seconds,
+            "salience": settings.schedule_salience_seconds,
+            "metrics": settings.schedule_metrics_seconds,
+            "project": settings.schedule_project_seconds,
+        },
+    )
+
     extract_message: ExtractMessage | None = None
-    worker: Worker | None = None
+    handlers: dict[str, Any] = {}
+
+    async def handle_reflect_sweep(job: Job) -> dict[str, Any]:
+        return (await reflection_sweep()).as_dict()
+
+    async def handle_salience(job: Job) -> dict[str, Any]:
+        updated = await reflection_repo.recompute_salience()
+        return {"salience_updated": updated}
+
+    async def handle_metrics(job: Job) -> dict[str, Any]:
+        return (await analytics.metrics()).model_dump()
+
+    async def handle_project(job: Job) -> dict[str, Any]:
+        return (await analytics.projection()).model_dump()
+
+    handlers.update(
+        {
+            "reflect_sweep": handle_reflect_sweep,
+            "salience": handle_salience,
+            "metrics": handle_metrics,
+            "project": handle_project,
+        }
+    )
+    if reflect_conversation is not None:
+
+        async def handle_reflect(job: Job) -> dict[str, Any]:
+            assert reflect_conversation is not None
+            return (await reflect_conversation(str(job.payload["conversation_id"]))).as_dict()
+
+        handlers["reflect"] = handle_reflect
+
     if extractor is not None:
         extract_message = ExtractMessage(
             messages=ConversationMessageSource(conversations, relationships),
@@ -175,9 +268,13 @@ def build_services(
             report = await extract_message(str(job.payload["message_id"]))
             return report.as_dict()
 
+        handlers["extract"] = handle_extract
+
+    worker: Worker | None = None
+    if handlers:
         worker = Worker(
             jobs=job_store,
-            handlers={"extract": handle_extract},
+            handlers=handlers,
             worker_id=settings.worker_id or default_worker_id(),
             lease_seconds=settings.worker_lease_seconds,
             poll_seconds=settings.worker_poll_seconds,
@@ -194,6 +291,10 @@ def build_services(
     )
     retriever = Retriever(SurrealMemoryReader(db), embedder)
 
+    start_conversation = StartConversation(conversations)
+    append_message = AppendMessage(conversations, jobs)
+    import_sink = ConversationImportSink(conversations, start_conversation, append_message)
+
     return Services(
         jobs=jobs,
         conversations=ConversationServices(
@@ -206,8 +307,17 @@ def build_services(
         ),
         knowledge=knowledge,
         extraction=ExtractionServices(
-            job_store=job_store, extract_message=extract_message, worker=worker
+            job_store=job_store,
+            extract_message=extract_message,
+            worker=worker,
+            scheduler=scheduler,
+            reflection_sweep=reflection_sweep,
+            reflect_conversation=reflect_conversation,
         ),
         reasoning=reasoning,
         retriever=retriever,
+        analytics=analytics,
+        curation=CurationServices(
+            import_sink=import_sink, synthetic=SyntheticGenerator(import_sink)
+        ),
     )

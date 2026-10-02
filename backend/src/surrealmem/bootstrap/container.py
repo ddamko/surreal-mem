@@ -14,6 +14,7 @@ from surrealmem.shared.infrastructure.surreal.connection import (
 if TYPE_CHECKING:
     from surrealmem.bootstrap.services import Services
     from surrealmem.extraction.domain import Extractor
+    from surrealmem.extraction.domain.reflection import Summarizer
     from surrealmem.shared.application import Embedder
     from surrealmem.shared.infrastructure.config import Settings
 
@@ -49,7 +50,10 @@ async def build_container(
     *,
     embedder: Embedder | None = None,
     extractor: Extractor | None = None,
+    summarizer: Summarizer | None = None,
 ) -> AppContainer:
     db = await open_connection(surreal_config(settings))
-    services = build_services(db, settings=settings, embedder=embedder, extractor=extractor)
+    services = build_services(
+        db, settings=settings, embedder=embedder, extractor=extractor, summarizer=summarizer
+    )
     return AppContainer(settings=settings, db=db, services=services)
