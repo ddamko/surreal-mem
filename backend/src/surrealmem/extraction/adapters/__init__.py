@@ -1,0 +1,1 @@
+"""extraction slice: adapters layer."""

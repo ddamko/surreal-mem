@@ -1,0 +1,1 @@
+"""curation slice: adapters layer."""

@@ -1,0 +1,24 @@
+name: surrealmem
+
+services:
+  surrealdb:
+    image: surrealdb/surrealdb:v3
+    # The image runs as "nonroot"; run as the host user so the bind mount is writable.
+    user: "${SURREAL_RUN_AS:-1000:1000}"
+    command:
+      - start
+      - --log=${SURREAL_LOG_LEVEL:-info}
+      - --user=${SURREAL_USER:-root}
+      - --pass=${SURREAL_PASS:-root}
+      - --bind=0.0.0.0:8000
+      - surrealkv:/data/db
+    ports:
+      - "${SURREAL_PORT:-8000}:8000"
+    volumes:
+      - ./data/surrealdb:/data
+    healthcheck:
+      test: ["CMD", "/surreal", "is-ready", "--endpoint", "http://127.0.0.1:8000"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped

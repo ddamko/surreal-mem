@@ -1,0 +1,187 @@
+[project]
+name = "surrealmem"
+version = "0.1.0"
+description = "Agentic memory on a SurrealDB knowledge graph: core library, API, MCP server and worker"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Derek Damko", email = "ddamko@wwsires.com" }]
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    "fastapi>=0.142.2,<1",
+    "httpx>=0.28.1,<1",
+    "pydantic>=2.13.5,<3",
+    "pydantic-settings>=2.15.0,<3",
+    "structlog>=26.1.0,<27",
+    "surrealdb==2.0.0",
+    "typer>=0.27.2,<1",
+    "uvicorn[standard]>=0.54.0,<1",
+    "websockets>=17.1,<18",
+]
+
+[project.scripts]
+surrealmem = "surrealmem.bootstrap.cli:app"
+
+[dependency-groups]
+dev = [
+    "import-linter>=2.15,<3",
+    "pyright>=1.1.414,<2",
+    "pytest>=9.1.1,<10",
+    "pytest-asyncio>=1.4.0,<2",
+    "pytest-cov>=7.1.0,<8",
+    "ruff>=0.16.10,<1",
+]
+
+[build-system]
+requires = ["hatchling>=1.27,<2"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/surrealmem"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers --strict-config"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+markers = [
+    "integration: needs the compose stack (SurrealDB on localhost)",
+    "live: needs the local inference services (GPU) and real models",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["surrealmem"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["ASYNC", "B", "C4", "E", "F", "I", "RUF", "SIM", "TC", "UP"]
+
+[tool.ruff.lint.flake8-type-checking]
+# pydantic, typer and FastAPI evaluate annotations at runtime.
+runtime-evaluated-base-classes = ["pydantic.BaseModel", "pydantic_settings.BaseSettings"]
+strict = false
+
+[tool.ruff.lint.per-file-ignores]
+"src/surrealmem/bootstrap/cli.py" = ["TC"]
+"src/surrealmem/bootstrap/health.py" = ["TC"]
+"src/surrealmem/**/adapters/http/**" = ["TC"]
+"src/surrealmem/**/adapters/mcp/**" = ["TC"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["surrealmem"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+
+[tool.importlinter]
+root_packages = ["surrealmem"]
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "Domain does not depend on outer layers"
+type = "forbidden"
+source_modules = [
+    "surrealmem.conversations.domain",
+    "surrealmem.knowledge.domain",
+    "surrealmem.reasoning.domain",
+    "surrealmem.retrieval.domain",
+    "surrealmem.extraction.domain",
+    "surrealmem.curation.domain",
+    "surrealmem.analytics.domain",
+    "surrealmem.shared.domain",
+]
+forbidden_modules = [
+    "surrealmem.bootstrap",
+    "surrealmem.shared.infrastructure",
+    "surrealmem.conversations.application",
+    "surrealmem.conversations.adapters",
+    "surrealmem.knowledge.application",
+    "surrealmem.knowledge.adapters",
+    "surrealmem.reasoning.application",
+    "surrealmem.reasoning.adapters",
+    "surrealmem.retrieval.application",
+    "surrealmem.retrieval.adapters",
+    "surrealmem.extraction.application",
+    "surrealmem.extraction.adapters",
+    "surrealmem.curation.application",
+    "surrealmem.curation.adapters",
+    "surrealmem.analytics.application",
+    "surrealmem.analytics.adapters",
+    "fastapi",
+    "surrealdb",
+    "httpx",
+    "structlog",
+    "typer",
+]
+
+[[tool.importlinter.contracts]]
+name = "Application does not depend on adapters or infrastructure"
+type = "forbidden"
+source_modules = [
+    "surrealmem.conversations.application",
+    "surrealmem.knowledge.application",
+    "surrealmem.reasoning.application",
+    "surrealmem.retrieval.application",
+    "surrealmem.extraction.application",
+    "surrealmem.curation.application",
+    "surrealmem.analytics.application",
+    "surrealmem.shared.application",
+]
+forbidden_modules = [
+    "surrealmem.bootstrap",
+    "surrealmem.shared.infrastructure",
+    "surrealmem.conversations.adapters",
+    "surrealmem.knowledge.adapters",
+    "surrealmem.reasoning.adapters",
+    "surrealmem.retrieval.adapters",
+    "surrealmem.extraction.adapters",
+    "surrealmem.curation.adapters",
+    "surrealmem.analytics.adapters",
+    "fastapi",
+    "surrealdb",
+    "httpx",
+    "typer",
+]
+
+[[tool.importlinter.contracts]]
+name = "Shared code does not depend on feature slices"
+type = "forbidden"
+source_modules = ["surrealmem.shared"]
+forbidden_modules = [
+    "surrealmem.conversations",
+    "surrealmem.knowledge",
+    "surrealmem.reasoning",
+    "surrealmem.retrieval",
+    "surrealmem.extraction",
+    "surrealmem.curation",
+    "surrealmem.analytics",
+    "surrealmem.bootstrap",
+]
+
+[[tool.importlinter.contracts]]
+name = "Feature slices are independent of each other"
+type = "independence"
+modules = [
+    "surrealmem.conversations",
+    "surrealmem.knowledge",
+    "surrealmem.reasoning",
+    "surrealmem.retrieval",
+    "surrealmem.extraction",
+    "surrealmem.curation",
+    "surrealmem.analytics",
+]

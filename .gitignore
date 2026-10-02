@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+.pyright/
+htmlcov/
+.coverage
+coverage.xml
+dist/
+build/
+*.egg-info/
+
+# Node / Angular
+node_modules/
+dashboard/dist/
+dashboard/.angular/
+.nx/
+
+# Local state
+.env
+.env.*.local
+data/
+models/
+*.log
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store

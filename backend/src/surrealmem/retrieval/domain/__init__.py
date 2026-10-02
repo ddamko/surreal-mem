@@ -1,0 +1,1 @@
+"""retrieval slice: domain layer."""

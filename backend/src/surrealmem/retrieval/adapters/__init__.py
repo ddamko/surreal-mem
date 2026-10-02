@@ -1,0 +1,1 @@
+"""retrieval slice: adapters layer."""

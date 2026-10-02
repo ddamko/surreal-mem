@@ -1,0 +1,1 @@
+"""knowledge slice: domain layer."""
