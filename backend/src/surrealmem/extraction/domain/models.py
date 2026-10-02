@@ -131,6 +131,7 @@ class Job(BaseModel):
     scheduled_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
+    duration_ms: int | None = None
     correlation_id: str | None = None
     dedupe_key: str | None = None
     created_at: datetime

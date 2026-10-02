@@ -27,6 +27,7 @@ class Worker:
     lease_seconds: int = 300
     poll_seconds: float = 1.0
     retry_base_seconds: int = 10
+    concurrency: int = 1
     processed: int = field(default=0, init=False)
 
     @property
@@ -47,14 +48,24 @@ class Worker:
         return count
 
     async def run_forever(self, stop: asyncio.Event | None = None) -> None:
+        """Run ``concurrency`` independent claim loops until ``stop`` is set."""
         stop = stop or asyncio.Event()
-        log.info("worker.start", worker_id=self.worker_id, kinds=self.kinds)
+        log.info(
+            "worker.start", worker_id=self.worker_id, kinds=self.kinds, concurrency=self.concurrency
+        )
+        await asyncio.gather(*(self._loop(stop, slot) for slot in range(max(1, self.concurrency))))
+        log.info("worker.stop", worker_id=self.worker_id, processed=self.processed)
+
+    async def _loop(self, stop: asyncio.Event, slot: int) -> None:
         while not stop.is_set():
-            ran = await self.run_once()
-            if ran == 0:
+            job = await self.jobs.claim(
+                f"{self.worker_id}#{slot}", kinds=self.kinds, lease_seconds=self.lease_seconds
+            )
+            if job is None:
                 with contextlib.suppress(TimeoutError):
                     await asyncio.wait_for(stop.wait(), timeout=self.poll_seconds)
-        log.info("worker.stop", worker_id=self.worker_id, processed=self.processed)
+                continue
+            await self._process(job)
 
     async def _process(self, job: Job) -> None:
         structlog.contextvars.bind_contextvars(

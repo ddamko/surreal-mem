@@ -278,6 +278,7 @@ def build_services(
             worker_id=settings.worker_id or default_worker_id(),
             lease_seconds=settings.worker_lease_seconds,
             poll_seconds=settings.worker_poll_seconds,
+            concurrency=settings.worker_concurrency,
         )
 
     traces = SurrealTraceRepository(db)

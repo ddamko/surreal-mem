@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     worker_id: str | None = None
     worker_poll_seconds: float = 1.0
     worker_lease_seconds: int = 300
+    worker_concurrency: int = Field(default=2, ge=1, le=8)
     schedule_reflect_sweep_seconds: int = 600
     schedule_salience_seconds: int = 1800
     schedule_metrics_seconds: int = 1800

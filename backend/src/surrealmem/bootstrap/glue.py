@@ -49,11 +49,14 @@ class ConversationMessageSource:
         conversation = await self.conversations.get(message.conversation_id)
         if conversation is None:
             return None
+        standalone = message.metadata.get("source") == "hindsight" and bool(
+            message.metadata.get("fact_type")
+        )
         earlier = (
             await self.conversations.messages(
                 message.conversation_id, limit=window, before_seq=message.seq
             )
-            if window > 0
+            if window > 0 and not standalone
             else []
         )
         kinds = [k.kind for k in await self.relationships.kinds() if not k.proposed]

@@ -37,6 +37,10 @@ pure tool output).
 """
 
 
+MAX_TARGET_CHARS = 6000
+MAX_WINDOW_CHARS = 800
+
+
 def build_prompt(context: ExtractionContext) -> str:
     lines = [
         f"Date of the message: {context.sent_at.date().isoformat()}",
@@ -47,8 +51,11 @@ def build_prompt(context: ExtractionContext) -> str:
     if context.window:
         lines.append("\nEarlier messages (context only, do not extract from them):")
         for role, content in context.window:
-            lines.append(f"[{role}] {content.strip()[:1500]}")
-    lines.append(f"\nMessage to extract from ([{context.role}]):\n{context.content.strip()}")
+            lines.append(f"[{role}] {content.strip()[:MAX_WINDOW_CHARS]}")
+    body = context.content.strip()
+    if len(body) > MAX_TARGET_CHARS:
+        body = body[:MAX_TARGET_CHARS] + "\n[... truncated ...]"
+    lines.append(f"\nMessage to extract from ([{context.role}]):\n{body}")
     return "\n".join(lines)
 
 

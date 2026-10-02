@@ -39,6 +39,7 @@ def _job(row: Row) -> Job:
         scheduled_at=to_datetime(row["scheduled_at"]),
         started_at=opt_datetime(row.get("started_at")),
         finished_at=opt_datetime(row.get("finished_at")),
+        duration_ms=row.get("duration_ms"),
         correlation_id=row.get("correlation_id"),
         dedupe_key=row.get("dedupe_key"),
         created_at=to_datetime(row["created_at"]),
