@@ -9,7 +9,11 @@
       </span>
       <div>
         <div class="text-base font-semibold tracking-tight">surrealmem</div>
-        <div class="text-xs text-base-content/60">{{ live.connected() ? 'live' : 'reconnecting' }} · {{ live.counter() }} events</div>
+        @if (live.unauthorized()) {
+          <div class="text-xs text-warning">API token required · set it below</div>
+        } @else {
+          <div class="text-xs text-base-content/60">{{ live.connected() ? 'live' : 'reconnecting' }} · {{ live.counter() }} events</div>
+        }
       </div>
     </div>
     <nav class="flex-1 overflow-y-auto px-2">

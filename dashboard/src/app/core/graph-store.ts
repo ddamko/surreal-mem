@@ -1,6 +1,7 @@
 import Graph from 'graphology';
 import forceAtlas2 from 'graphology-layout-forceatlas2';
 import { circular } from 'graphology-layout';
+import { themeColor } from './color';
 import { typeColor } from './types';
 
 export interface GraphNode {
@@ -58,7 +59,7 @@ export function buildGraph(nodes: GraphNode[], edges: GraphEdge[], options: { si
       label: edge.kind,
       kind: edge.kind,
       size: 1 + Math.min(4, Math.log2(1 + (edge.mention_count ?? 1))),
-      color: 'var(--edge-ink)',
+      color: themeColor('--edge-ink', '#667788'),
       confidence: edge.confidence ?? 1,
       proposed: edge.proposed ?? false,
       type: 'arrow',

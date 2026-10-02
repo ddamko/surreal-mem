@@ -19,6 +19,8 @@ export class LiveService {
   private readonly listeners = new Set<(event: LiveEvent) => void>();
 
   readonly connected = signal(false);
+  /** The server closed the socket with 4401: the token is missing or wrong. No more retries. */
+  readonly unauthorized = signal(false);
   readonly feed = signal<LiveEvent[]>([]);
   readonly counter = signal(0);
 
@@ -45,9 +47,14 @@ export class LiveService {
     this.socket.onopen = () => {
       this.attempts = 0;
       this.connected.set(true);
+      this.unauthorized.set(false);
     };
-    this.socket.onclose = () => {
+    this.socket.onclose = (event: CloseEvent) => {
       this.connected.set(false);
+      if (event.code === 4401) {
+        this.unauthorized.set(true);
+        return;
+      }
       this.scheduleReconnect();
     };
     this.socket.onerror = () => this.socket?.close();

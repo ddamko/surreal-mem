@@ -3,15 +3,15 @@ import * as echarts from 'echarts/core';
 import { BarChart, HeatmapChart, LineChart, SankeyChart, ScatterChart } from 'echarts/charts';
 import { GridComponent, LegendComponent, TooltipComponent, VisualMapComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
+import { themeColor } from './color';
 
 echarts.use([BarChart, LineChart, SankeyChart, HeatmapChart, ScatterChart, GridComponent, TooltipComponent, LegendComponent, VisualMapComponent, CanvasRenderer]);
 
 export function chartInk(): { ink: string; text: string; primary: string } {
-  const style = getComputedStyle(document.documentElement);
   return {
-    ink: style.getPropertyValue('--edge-ink').trim() || '#888',
-    text: style.getPropertyValue('--color-base-content').trim() || '#ddd',
-    primary: style.getPropertyValue('--color-primary').trim() || '#e8b04b',
+    ink: themeColor('--edge-ink', '#888888'),
+    text: themeColor('--color-base-content', '#dddddd'),
+    primary: themeColor('--color-primary', '#e8b04b'),
   };
 }
 

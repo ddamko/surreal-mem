@@ -13,6 +13,7 @@ and `docs/adr/` for the decision records.
 cp .env.example .env            # set SURREALMEM_API_TOKEN; point *_CONTAINER_*_BASE_URL at your inference
 just docker-up                  # SurrealDB + migrations + API + worker + dashboard (nginx)
 open http://localhost:4200      # dashboard; API and MCP are proxied under the same origin
+                                # first visit: sidebar footer → "API token" → paste SURREALMEM_API_TOKEN
 ```
 
 Inference (llama-server for the instruct and embedding models) runs on the host GPU; see

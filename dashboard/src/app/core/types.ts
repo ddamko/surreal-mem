@@ -1,11 +1,11 @@
 /** Shared presentation helpers: entity-type colors, formatting. */
+import { themeColor } from './color';
+
 export const BASE_TYPES = ['person', 'organization', 'location', 'event', 'object', 'concept'] as const;
 export type BaseType = (typeof BASE_TYPES)[number];
 
 export function typeColor(baseType: string): string {
-  const root = getComputedStyle(document.documentElement);
-  const value = root.getPropertyValue(`--type-${baseType}`).trim();
-  return value || root.getPropertyValue('--edge-ink').trim() || '#888';
+  return themeColor(`--type-${baseType}`, themeColor('--edge-ink', '#888888'));
 }
 
 export function shortId(id: string | null | undefined): string {

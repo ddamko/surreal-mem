@@ -89,6 +89,7 @@ export class VectorsPage {
     this.scene.add(grid);
     const resize = (): void => {
       const w = el.clientWidth, h = el.clientHeight;
+      if (!w || !h) return;
       this.renderer!.setSize(w, h);
       this.camera!.aspect = w / Math.max(1, h);
       this.camera!.updateProjectionMatrix();
@@ -105,6 +106,7 @@ export class VectorsPage {
     let frame = 0;
     const tick = (): void => {
       frame = requestAnimationFrame(tick);
+      if (!el.clientWidth || !el.clientHeight) return;
       this.controls?.update();
       this.pick();
       this.renderer!.render(this.scene!, this.camera!);
@@ -149,7 +151,7 @@ export class VectorsPage {
     rows.forEach((p, i) => {
       positions.set([(p.projection.x3 - cx) * scale, (p.projection.y3 - cy) * scale, (p.projection.z3 - cz) * scale], i * 3);
       const base = this.colorBy() === 'community' ? communityColor(p.community ?? -1) : typeColor(p.base_type);
-      const c = new THREE.Color(base.startsWith('var') ? '#7a8295' : base);
+      const c = new THREE.Color(base);
       if (highlighted.size && !highlighted.has(p.id)) c.multiplyScalar(0.25);
       colors.set([c.r, c.g, c.b], i * 3);
       sizes[i] = 0.25 + (p.salience ?? 0.5) * 0.35 + (highlighted.has(p.id) ? 0.3 : 0);

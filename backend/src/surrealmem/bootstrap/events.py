@@ -27,11 +27,13 @@ def _authorized(websocket: WebSocket) -> bool:
 @router.websocket("/api/v1/events")
 async def events(websocket: WebSocket) -> None:
     """Stream LiveEvent JSON frames: {table, action, id, record, at}. Auth: ?token= or Bearer."""
+    # Accept before closing: a pre-accept close is an HTTP 403 handshake failure, which browsers
+    # report as "connection refused" with no code. After accept the client sees 4401 and stops.
+    await websocket.accept()
     if not _authorized(websocket):
-        await websocket.close(code=4401)
+        await websocket.close(code=4401, reason="invalid or missing token")
         return
     relay: LiveRelay = websocket.app.state.live_relay
-    await websocket.accept()
     tables = {t for t in (websocket.query_params.get("tables") or "").split(",") if t}
     async with relay.subscribe() as queue:
         try:

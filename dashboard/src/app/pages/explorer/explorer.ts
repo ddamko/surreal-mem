@@ -1,8 +1,9 @@
 import { DecimalPipe, SlicePipe } from '@angular/common';
-import { Component, ElementRef, afterNextRender, computed, effect, inject, resource, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, resource, signal, viewChild } from '@angular/core';
 import Graph from 'graphology';
 import Sigma from 'sigma';
 import { ApiService } from '../../core/api';
+import { themeColor } from '../../core/color';
 import { SpaceService } from '../../core/space';
 import { BASE_TYPES, compact, typeColor } from '../../core/types';
 import { buildGraph, type ColorBy, type GraphEdge, type GraphNode, type SizeBy } from '../../core/graph-store';
@@ -21,6 +22,7 @@ interface Neighborhood {
 })
 export class ExplorerPage {
   private readonly api = inject(ApiService);
+  private readonly destroyRef = inject(DestroyRef);
   protected readonly space = inject(SpaceService);
   protected readonly baseTypes = BASE_TYPES;
   protected readonly compact = compact;
@@ -120,15 +122,18 @@ export class ExplorerPage {
 
   private mount(): void {
     const container = this.canvas().nativeElement;
-    const ink = getComputedStyle(document.documentElement).getPropertyValue('--edge-ink').trim();
-    const text = getComputedStyle(document.documentElement).getPropertyValue('--color-base-content').trim();
+    const ink = themeColor('--edge-ink', '#666677');
+    const text = themeColor('--color-base-content', '#dddddd');
+    const primary = themeColor('--color-primary', '#e8b04b');
     this.sigma = new Sigma(this.graph ?? new Graph({ multi: true, type: 'directed' }), container, {
+      // The container can be 0 px wide during route transitions; Sigma resizes on the next frame.
+      allowInvalidContainer: true,
       renderEdgeLabels: false,
       labelFont: 'Inter Variable, sans-serif',
       labelSize: 12,
-      labelColor: { color: text || '#ddd' },
+      labelColor: { color: text },
       labelRenderedSizeThreshold: 9,
-      defaultEdgeColor: ink || '#667',
+      defaultEdgeColor: ink,
       defaultEdgeType: 'arrow',
       zIndex: true,
       nodeReducer: (node, data) => {
@@ -141,11 +146,11 @@ export class ExplorerPage {
         return { ...data, color: this.dim(data['color'] as string), label: '', zIndex: 0 };
       },
       edgeReducer: (edge, data) => {
-        if (this.pathEdges().has(edge)) return { ...data, color: getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#e8b04b', size: 4, zIndex: 3 };
+        if (this.pathEdges().has(edge)) return { ...data, color: primary, size: 4, zIndex: 3 };
         const focus = this.hovered() ?? this.selected();
         if (!focus || !this.graph) return data;
         const [s, t] = this.graph.extremities(edge);
-        if (s === focus || t === focus) return { ...data, color: text || '#ddd', zIndex: 2 };
+        if (s === focus || t === focus) return { ...data, color: text, zIndex: 2 };
         return { ...data, color: this.dim(ink), hidden: false, zIndex: 0 };
       },
     });
@@ -153,6 +158,10 @@ export class ExplorerPage {
     this.sigma.on('clickStage', () => this.selected.set(null));
     this.sigma.on('enterNode', ({ node }) => this.hovered.set(node));
     this.sigma.on('leaveNode', () => this.hovered.set(null));
+    this.destroyRef.onDestroy(() => {
+      this.sigma?.kill();
+      this.sigma = null;
+    });
   }
 
   private dim(color: string): string {

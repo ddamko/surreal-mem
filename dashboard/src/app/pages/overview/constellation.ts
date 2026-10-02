@@ -1,6 +1,7 @@
 import { Component, DestroyRef, ElementRef, afterNextRender, inject } from '@angular/core';
 import * as THREE from 'three';
 import { LiveService } from '../../core/live';
+import { themeColor } from '../../core/color';
 import { typeColor } from '../../core/types';
 
 /** A living field of memories: each arriving entity or fact becomes a point that drifts toward its
@@ -65,7 +66,7 @@ export class Constellation {
     };
 
     // Prime with a faint background field so the page never looks empty.
-    const ink = new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--edge-ink').trim() || '#666');
+    const ink = new THREE.Color(themeColor('--edge-ink', '#666666'));
     for (let i = 0; i < 160; i++) {
       const kinds = Object.keys(regions);
       seed(kinds[i % kinds.length], ink.clone().multiplyScalar(0.55));
@@ -75,11 +76,12 @@ export class Constellation {
     const unsubscribe = this.live.on((event) => {
       if (event.action !== 'CREATE') return;
       if (event.table === 'entity') seed(String(event.record['base_type'] ?? 'concept'), new THREE.Color(typeColor(String(event.record['base_type'] ?? 'concept'))));
-      else if (event.table === 'fact') seed('fact', new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim() || '#e8b04b'));
+      else if (event.table === 'fact') seed('fact', new THREE.Color(themeColor('--color-primary', '#e8b04b')));
     });
 
     const resize = (): void => {
       const { clientWidth: w, clientHeight: h } = el;
+      if (!w || !h) return;
       renderer.setSize(w, h);
       camera.aspect = w / Math.max(1, h);
       camera.updateProjectionMatrix();
@@ -89,11 +91,13 @@ export class Constellation {
     resize();
 
     let frame = 0;
-    const clock = new THREE.Clock();
-    const tick = (): void => {
+    const timer = new THREE.Timer();
+    const tick = (now: number): void => {
       frame = requestAnimationFrame(tick);
-      const dt = Math.min(0.05, clock.getDelta());
-      const t = clock.elapsedTime;
+      if (!el.clientWidth || !el.clientHeight) return;
+      timer.update(now);
+      const dt = Math.min(0.05, timer.getDelta());
+      const t = timer.getElapsed();
       for (let i = 0; i < count; i++) {
         const target = targets[i];
         const v = velocities[i];
@@ -108,7 +112,7 @@ export class Constellation {
       if (!this.reduced) points.rotation.y = Math.sin(t * 0.05) * 0.12;
       renderer.render(scene, camera);
     };
-    tick();
+    tick(performance.now());
 
     this.destroyRef.onDestroy(() => {
       cancelAnimationFrame(frame);

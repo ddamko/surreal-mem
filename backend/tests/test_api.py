@@ -48,3 +48,20 @@ async def test_errors_are_problem_details(client: httpx.AsyncClient) -> None:
     assert body["status"] == 404
     assert body["title"] == "Not Found"
     assert body["instance"] == "/does-not-exist"
+
+
+async def test_events_socket_closes_with_4401_on_bad_token(embedded_db: SurrealConnection) -> None:
+    from starlette.testclient import TestClient
+    from starlette.websockets import WebSocketDisconnect
+
+    settings = Settings(surreal_url="mem://", log_json=False)
+    container = AppContainer(
+        settings=settings, db=embedded_db, services=build_services(embedded_db)
+    )
+    app = create_app(settings=settings, container=container)
+    with (
+        pytest.raises(WebSocketDisconnect) as closed,
+        TestClient(app).websocket_connect("/api/v1/events?token=wrong") as socket,
+    ):
+        socket.receive_text()
+    assert closed.value.code == 4401
