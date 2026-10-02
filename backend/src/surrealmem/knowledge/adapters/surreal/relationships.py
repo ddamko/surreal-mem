@@ -153,3 +153,21 @@ class SurrealRelationshipRepository:
             "UPDATE type::record('relation_kind', $k) SET usage_count += 1",
             {"k": kind},
         )
+
+    async def set_kind_proposed(self, kind: str, *, proposed: bool) -> RelationKind:
+        results = await run_script(
+            self.db,
+            """
+            BEGIN;
+            UPDATE type::record('relation_kind', $k) SET proposed = $p RETURN NONE;
+            UPDATE related_to SET proposed = $p WHERE kind = $k RETURN NONE;
+            SELECT * FROM relation_kind WHERE kind = $k;
+            COMMIT;
+            """,
+            {"k": kind, "p": proposed},
+        )
+        try:
+            rows = rows_with(results, "kind")
+        except LookupError as exc:
+            raise LookupError(kind) from exc
+        return kind_from_row(rows[0])

@@ -243,3 +243,31 @@ async def test_retrieval_and_traces_and_stats(api: httpx.AsyncClient) -> None:
     assert schema.status_code == 200
     paths = schema.json()["paths"]
     assert "/api/v1/retrieval/context" in paths and "/api/v1/entities/{entity_id}" in paths
+
+
+async def test_config_migrations_and_kind_decisions(api: httpx.AsyncClient) -> None:
+    config = await api.get("/stats/config")
+    assert config.status_code == 200 and config.json()["embed_dimension"] == 1024
+    assert "api_token" not in config.json()
+    migrations = await api.get("/stats/migrations")
+    assert migrations.status_code == 200 and all(m["applied"] for m in migrations.json())
+    derek = (await api.post("/entities", json={"name": "Derek", "base_type": "person"})).json()[
+        "entity"
+    ]
+    nu = (await api.post("/entities", json={"name": "Nushell", "base_type": "object"})).json()[
+        "entity"
+    ]
+    rel = (
+        await api.post(
+            "/relationships",
+            json={"source_id": derek["id"], "target_id": nu["id"], "kind": "SWEARS_BY"},
+        )
+    ).json()
+    assert rel["proposed"] is True
+    accepted = await api.post("/relationship-kinds/swears_by", json={"proposed": False})
+    assert accepted.status_code == 200 and accepted.json()["proposed"] is False
+    edge = (await api.get(f"/entities/{derek['id']}")).json()["relationships"][0]
+    assert edge["proposed"] is False
+    assert (
+        await api.post("/relationship-kinds/NOPE_KIND", json={"proposed": False})
+    ).status_code == 404

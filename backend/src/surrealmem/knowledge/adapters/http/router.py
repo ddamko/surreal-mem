@@ -153,6 +153,16 @@ async def relationship_kinds(uc: UseCases) -> list[RelationKind]:
     return await uc.relationships.kinds()
 
 
+class KindDecision(BaseModel):
+    proposed: bool
+
+
+@router.post("/relationship-kinds/{kind}")
+async def decide_kind(kind: str, body: KindDecision, uc: UseCases) -> RelationKind:
+    """Accept a proposed kind into the vocabulary (proposed=false) or push it back."""
+    return await uc.relationships.set_kind_proposed(kind.upper(), proposed=body.proposed)
+
+
 @router.post("/relationships", status_code=201)
 async def add_relationship(data: NewRelationship, uc: UseCases) -> Relationship:
     return await uc.add_relationship(data)

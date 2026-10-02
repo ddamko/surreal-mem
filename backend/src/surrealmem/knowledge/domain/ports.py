@@ -111,6 +111,8 @@ class RelationshipRepository(Protocol):
 
     async def bump_kind_usage(self, kind: str) -> None: ...
 
+    async def set_kind_proposed(self, kind: str, *, proposed: bool) -> RelationKind: ...
+
 
 class FactRepository(Protocol):
     async def create(
