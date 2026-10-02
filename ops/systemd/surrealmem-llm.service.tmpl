@@ -9,7 +9,7 @@ Type=exec
 ExecStart={{LLAMA_SERVER}} \
     --model {{MODELS_DIR}}/{{LLM_FILE}} \
     --alias {{LLM_ALIAS}} \
-    --host 127.0.0.1 --port {{LLM_PORT}} \
+    --host {{LLAMA_BIND_HOST}} --port {{LLM_PORT}} \
     --n-gpu-layers 999 --ctx-size {{LLM_CTX}} --parallel 2 \
     --flash-attn on --jinja --metrics --no-webui
 ExecStartPost=/usr/bin/curl -fsS --retry 90 --retry-delay 2 --retry-connrefused --retry-all-errors http://127.0.0.1:{{LLM_PORT}}/health

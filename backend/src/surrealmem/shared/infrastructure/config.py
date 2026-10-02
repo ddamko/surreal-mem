@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -77,6 +77,12 @@ class Settings(BaseSettings):
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_json: bool = True
     otel_enabled: bool = False
+
+    @field_validator("dashboard_dist", mode="before")
+    @classmethod
+    def _empty_dist_is_none(cls, value: object) -> object:
+        """``SURREALMEM_DASHBOARD_DIST=`` disables static serving (containers use nginx)."""
+        return None if value in ("", None) else value
 
     @property
     def surreal_is_embedded(self) -> bool:

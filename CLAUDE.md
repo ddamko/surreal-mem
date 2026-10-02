@@ -11,12 +11,15 @@ Design: `docs/architecture.md`. Decision records: `docs/adr/`.
   import-linter enforces the layer rules (`just arch`).
 - `surreal/migrations/NNNN_name.surql` schema migrations. Never edit an applied one; add a new file.
 - `dashboard/` Angular 22 + Tailwind 4 + daisyUI 5 (+ Sigma.js, ECharts, Three.js).
-- `ops/` inference units and model recipes. `integrations/claude-code/` the Claude Code plugin.
+- `ops/` systemd unit templates (rendered by `surrealmem ops`). `integrations/claude-code/` the Claude
+  Code plugin. `backend/Dockerfile`, `dashboard/Dockerfile` + `nginx.conf`, `compose.yaml` (profile
+  `full`) for the container stack.
 
 ## Commands
 
-`just` is the entrypoint (recipes run through Nushell): `just up`, `just migrate`, `just api`,
-`just worker`, `just dashboard`, `just test`, `just check`. Backend tests use the embedded
+`just` is the entrypoint (POSIX sh recipes): `just up`, `just migrate`, `just api`, `just worker`,
+`just dashboard`, `just test`, `just check`, `just docker-up` (full container stack). Host
+operations are `uv run surrealmem ops ...` (Python; no Nushell dependency in the repo). Backend tests use the embedded
 `mem://` engine; `-m integration` needs `just up`; `-m live` needs the GPU models.
 
 ## Conventions

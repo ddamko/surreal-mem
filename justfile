@@ -1,6 +1,4 @@
-# surrealmem task runner. Recipes run through Nushell.
-set shell := ["nu", "-c"]
-set dotenv-load := true
+# surrealmem task runner. Recipes are POSIX sh so they run anywhere `just` does.
 
 backend := "backend"
 dashboard := "dashboard"
@@ -9,13 +7,15 @@ dashboard := "dashboard"
 default:
     @just --list
 
-# Start SurrealDB (compose)
-up:
-    mkdir data/surrealdb; docker compose up -d
+# ---------------------------------------------------------------- local development
 
-# Stop SurrealDB
+# Start SurrealDB only (compose)
+up:
+    mkdir -p data/surrealdb && docker compose up -d surrealdb
+
+# Stop everything started with compose
 down:
-    docker compose down
+    docker compose --profile full down
 
 # Tail SurrealDB logs
 logs:
@@ -23,137 +23,161 @@ logs:
 
 # Apply pending schema migrations
 migrate:
-    cd {{backend}}; uv run surrealmem migrate
+    cd {{backend}} && uv run surrealmem migrate
 
 # Show migration status
 migrate-status:
-    cd {{backend}}; uv run surrealmem migrate status
+    cd {{backend}} && uv run surrealmem migrate status
 
 # Run the API with auto-reload
 api:
-    cd {{backend}}; uv run surrealmem api --reload
+    cd {{backend}} && uv run surrealmem api --reload
 
-# Run the background worker
+# Run the background worker (extraction, reflection, metrics, projection)
 worker:
-    cd {{backend}}; uv run surrealmem worker
+    cd {{backend}} && uv run surrealmem worker
+
+# Run the worker once over the queued jobs
+worker-once:
+    cd {{backend}} && uv run surrealmem worker --once
 
 # Run the MCP server over stdio
 mcp:
-    cd {{backend}}; uv run surrealmem mcp
+    cd {{backend}} && uv run surrealmem mcp
 
-# Run the dashboard dev server
+# Run the dashboard dev server (proxies /api to the API)
 dashboard:
-    cd {{dashboard}}; npm start
-
-# Regenerate the dashboard's TypeScript API types from the OpenAPI schema
-api-types:
-    cd {{backend}}; uv run surrealmem openapi | save --force ../dashboard/src/app/api/openapi.json
-    cd {{dashboard}}; npx openapi-typescript src/app/api/openapi.json -o src/app/api/schema.d.ts
-
-# Build the dashboard for production
-build-dashboard:
-    cd {{dashboard}}; npm run build
+    cd {{dashboard}} && npm start
 
 # Install backend and dashboard dependencies
 install:
-    cd {{backend}}; uv sync
-    cd {{dashboard}}; npm ci
+    cd {{backend}} && uv sync
+    cd {{dashboard}} && npm ci
+
+# ---------------------------------------------------------------- quality gates
 
 # Format backend code
 fmt:
-    cd {{backend}}; uv run ruff format .
+    cd {{backend}} && uv run ruff format .
 
 # Lint backend code (format check + ruff)
 lint:
-    cd {{backend}}; uv run ruff format --check .; uv run ruff check .
+    cd {{backend}} && uv run ruff format --check . && uv run ruff check .
 
 # Type-check backend code
 typecheck:
-    cd {{backend}}; uv run pyright
+    cd {{backend}} && uv run pyright
 
 # Enforce architecture contracts
 arch:
-    cd {{backend}}; uv run lint-imports
+    cd {{backend}} && uv run lint-imports
 
 # Fast test suite (embedded engine, no containers)
 test *args:
-    cd {{backend}}; uv run pytest -m "not integration and not live" {{args}}
+    cd {{backend}} && uv run pytest -m "not integration and not live" {{args}}
 
 # Integration tests against the compose stack
 test-integration *args:
-    cd {{backend}}; uv run pytest -m integration {{args}}
-
-# Dashboard end-to-end smoke tests (needs `just api` and `just dashboard` running)
-e2e:
-    cd {{dashboard}}; npx playwright test
-
-# Dashboard unit tests
-test-dashboard:
-    cd {{dashboard}}; npm test -- --watch=false
+    cd {{backend}} && uv run pytest -m integration {{args}}
 
 # Live extraction evaluation against the local models
 eval:
-    cd {{backend}}; uv run pytest -m live
+    cd {{backend}} && uv run pytest -m live
+
+# Dashboard unit tests
+test-dashboard:
+    cd {{dashboard}} && npm test -- --watch=false
+
+# Dashboard end-to-end smoke tests (needs the API and the dev server running)
+e2e:
+    cd {{dashboard}} && npx playwright test
+
+# Regenerate the dashboard's TypeScript API types from the OpenAPI schema
+api-types:
+    cd {{backend}} && uv run surrealmem openapi > ../{{dashboard}}/src/app/api/openapi.json
+    cd {{dashboard}} && npx openapi-typescript src/app/api/openapi.json -o src/app/api/schema.d.ts
+
+# Build the dashboard for production
+build-dashboard:
+    cd {{dashboard}} && npm run build
 
 # Everything CI runs
 check: lint typecheck arch test build-dashboard
 
-# Build llama.cpp with HIP for this GPU (idempotent; --force via the script)
+# ---------------------------------------------------------------- containers
+
+# Build the backend and dashboard images
+docker-build:
+    docker compose --profile full build
+
+# Run the whole stack in containers (SurrealDB, migrate, API, worker, dashboard)
+docker-up:
+    mkdir -p data/surrealdb && docker compose --profile full up -d --build
+
+# Stop the container stack
+docker-down:
+    docker compose --profile full down
+
+# Container logs
+docker-logs service="api":
+    docker compose --profile full logs -f {{service}}
+
+# ---------------------------------------------------------------- host inference and units
+
+# Build llama.cpp with HIP for this GPU (idempotent)
 llama-build:
-    nu scripts/inference.nu build
+    cd {{backend}} && uv run surrealmem ops llama-build
 
 # Download the GGUF models (idempotent)
 models:
-    nu scripts/inference.nu models
+    cd {{backend}} && uv run surrealmem ops models
 
-# Render, install and start the llama-server user units, then wait for health
+# Install and start the llama-server user units, then wait for health
 inference:
-    nu scripts/inference.nu install
+    cd {{backend}} && uv run surrealmem ops inference install
 
-# Print the rendered units without installing
+# Print the rendered inference units without installing
 inference-dry-run:
-    nu scripts/inference.nu install --dry-run
+    cd {{backend}} && uv run surrealmem ops inference install --dry-run
 
-# Unit state and health endpoints
+# Inference unit state and health
 inference-status:
-    nu scripts/inference.nu status
+    cd {{backend}} && uv run surrealmem ops inference status
 
 # Stop and disable the inference units
 inference-stop:
-    nu scripts/inference.nu stop
+    cd {{backend}} && uv run surrealmem ops inference stop
 
 # Install and start the API and worker as systemd user units
 services:
-    nu scripts/services.nu install
+    cd {{backend}} && uv run surrealmem ops services install
 
 # API and worker unit status
 services-status:
-    nu scripts/services.nu status
+    cd {{backend}} && uv run surrealmem ops services status
 
 # Stop and disable the API and worker units
 services-stop:
-    nu scripts/services.nu stop
+    cd {{backend}} && uv run surrealmem ops services stop
 
-# Tail a service journal: just logs worker | just logs api
+# Tail a service journal: just logs-service worker | just logs-service api
 logs-service which="worker":
-    nu scripts/services.nu logs {{which}}
+    cd {{backend}} && uv run surrealmem ops services logs {{which}}
 
-# Run the worker once over the queued jobs
-worker-once:
-    cd {{backend}}; uv run surrealmem worker --once
+# ---------------------------------------------------------------- data
 
 # Load the fictional demo dataset (space "demo")
 seed count="5":
-    cd {{backend}}; uv run surrealmem seed synthetic --space demo --count {{count}}
+    cd {{backend}} && uv run surrealmem seed synthetic --space demo --count {{count}}
 
 # Read-only import of a Hindsight bank (default: hermes -> personal)
 import-hindsight bank="hermes" space="personal":
-    cd {{backend}}; uv run surrealmem import hindsight --bank {{bank}} --space {{space}}
+    cd {{backend}} && uv run surrealmem import hindsight --bank {{bank}} --space {{space}}
 
 # Enqueue a maintenance job: reflect_sweep | salience | metrics | project
 job kind:
-    cd {{backend}}; uv run surrealmem jobs enqueue {{kind}}
+    cd {{backend}} && uv run surrealmem jobs enqueue {{kind}}
 
 # Job counts by status
 jobs:
-    cd {{backend}}; uv run surrealmem jobs status
+    cd {{backend}} && uv run surrealmem jobs status

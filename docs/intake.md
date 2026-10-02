@@ -96,9 +96,9 @@ provenance from every memory back to its source message, and an MCP tool surface
 | 23 | Python | 3.14 with uv, hatchling, ruff, pyright strict, import-linter, pytest, pydantic-settings, structlog. |
 | 24 | Architecture | Feature-sliced Clean Architecture monorepo; protocol ports; `bootstrap` composition root; ADRs. |
 | 25 | Tests | Unit with fakes; integration on `mem://` with real migrations and deterministic fakes; e2e on compose; Playwright; opt-in `live` evaluation. |
-| 26 | Workflow | `just` through Nushell; private GitHub repo; Actions on the embedded engine. |
+| 26 | Workflow | `just` (POSIX sh recipes since the 2026-10-02 amendment; Nushell is no longer required); private GitHub repo; Actions on the embedded engine plus image builds. |
 | 27 | Claude Code | MCP tools + SessionStart/UserPromptSubmit/Stop hooks as a plugin under `integrations/claude-code/`. |
-| 28 | Inference ops | Unit templates, `just models`, `just inference`, health checks under `ops/`. |
+| 28 | Inference ops | Unit templates under `ops/`, driven by `surrealmem ops` (Python); container stack via `compose.yaml` profile `full` (amended 2026-10-02). |
 | 29 | Seed | Import both Hindsight banks via REST export, one space each; re-type and resolve with our pipeline; synthetic generator for CI. |
 | 30 | Visual | Dark observatory custom daisyUI theme, one accent, light variant, Inter + JetBrains Mono, fixed hue per entity type, validated palette. |
 | 31 | Three.js | 3D Vector Space and live Overview constellation; optional 3D view of the Explorer subgraph. |

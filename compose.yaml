@@ -1,5 +1,29 @@
 name: surrealmem
 
+# Default profile: only SurrealDB, for local development with `uv run` processes.
+# `--profile full`: the whole system in containers (migrate, api, worker, dashboard).
+# Inference stays on the host (GPU); containers reach it through host.docker.internal.
+
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: backend/Dockerfile
+  image: surrealmem/backend:local
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    SURREALMEM_SURREAL_URL: ws://surrealdb:8000/rpc
+    SURREALMEM_SURREAL_USER: ${SURREAL_USER:-root}
+    SURREALMEM_SURREAL_PASS: ${SURREAL_PASS:-root}
+    SURREALMEM_API_HOST: 0.0.0.0
+    SURREALMEM_LLM_BASE_URL: ${SURREALMEM_CONTAINER_LLM_BASE_URL:-http://host.docker.internal:8081/v1}
+    SURREALMEM_EMBED_BASE_URL: ${SURREALMEM_CONTAINER_EMBED_BASE_URL:-http://host.docker.internal:8082/v1}
+    SURREALMEM_DASHBOARD_DIST: ""
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  profiles: ["full"]
+
 services:
   surrealdb:
     image: surrealdb/surrealdb:v3
@@ -21,4 +45,43 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    command: ["surrealmem", "migrate"]
+    restart: "no"
+    depends_on:
+      surrealdb:
+        condition: service_healthy
+
+  api:
+    <<: *backend
+    command: ["surrealmem", "api"]
+    ports:
+      - "${SURREALMEM_API_PUBLISHED_PORT:-8790}:8790"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  worker:
+    <<: *backend
+    command: ["surrealmem", "worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  dashboard:
+    build:
+      context: ./dashboard
+    image: surrealmem/dashboard:local
+    environment:
+      API_UPSTREAM: http://api:8790
+    ports:
+      - "${DASHBOARD_PORT:-4200}:80"
+    depends_on:
+      - api
+    profiles: ["full"]
     restart: unless-stopped

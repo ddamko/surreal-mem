@@ -188,9 +188,15 @@ Cross-slice composition happens only in `bootstrap`.
 
 ## 7. Operations
 
-Inference runs as two systemd user units rendered from `ops/systemd/*.tmpl` by
-`scripts/inference.nu` (`just llama-build`, `just models`, `just inference`, `just inference-status`).
-The llama.cpp binary is built by the project for the exact GPU architecture and ROCm version.
+Two ways to run the system:
+
+1. **Containers** (`just docker-up`, compose profile `full`): SurrealDB, a one-shot `migrate`
+   service, `api`, `worker` (same image, `backend/Dockerfile`) and `dashboard` (Angular build served
+   by nginx, which proxies `/api`, `/mcp`, `/health` to the API so the browser has one origin).
+   Containers reach the host's inference endpoints through `host.docker.internal`.
+2. **Host processes**: `surrealmem ops ...` (Python) builds llama.cpp with HIP for the GPU,
+   downloads the GGUFs, and renders the systemd user units under `ops/systemd/` for inference,
+   API and worker (`just llama-build`, `just models`, `just inference`, `just services`).
 
 - `just up` starts SurrealDB from `compose.yaml` (runs as the host user on `./data/surrealdb`).
 - `just migrate` applies migrations; `just migrate-status` reports drift.

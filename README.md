@@ -7,12 +7,23 @@ vector space and the analytics of what agents remember.
 See `docs/intake.md` for the agreed scope and decisions, `docs/architecture.md` for the system design,
 and `docs/adr/` for the decision records.
 
-## Quick start
+## Quick start (containers)
+
+```text
+cp .env.example .env            # set SURREALMEM_API_TOKEN; point *_CONTAINER_*_BASE_URL at your inference
+just docker-up                  # SurrealDB + migrations + API + worker + dashboard (nginx)
+open http://localhost:4200      # dashboard; API and MCP are proxied under the same origin
+```
+
+Inference (llama-server for the instruct and embedding models) runs on the host GPU; see
+`ops/README.md` or point the `*_CONTAINER_*_BASE_URL` variables at any OpenAI-compatible endpoint.
+
+## Quick start (local development)
 
 ```text
 just up            # start SurrealDB (compose)
 just migrate       # apply schema migrations
-just llama-build   # build llama.cpp with HIP for this GPU (once)
+just llama-build   # build llama.cpp with HIP for this GPU (once; `surrealmem ops llama-build`)
 just models        # download the instruct + embedding GGUFs (once)
 just inference     # install and start the llama-server user units
 just api           # REST + MCP on http://127.0.0.1:8790 (docs at /docs, MCP at /mcp/)

@@ -8,11 +8,13 @@ import typer
 
 from surrealmem import __version__
 from surrealmem.bootstrap.container import build_container
+from surrealmem.bootstrap.ops import ops_app
 from surrealmem.shared.infrastructure.config import Settings
 from surrealmem.shared.infrastructure.logging import configure_logging
 from surrealmem.shared.infrastructure.surreal import migrations as mig
 
 app = typer.Typer(no_args_is_help=True, add_completion=False, help="surrealmem control plane")
+app.add_typer(ops_app, name="ops")
 migrate_app = typer.Typer(no_args_is_help=False, help="Schema migrations")
 app.add_typer(migrate_app, name="migrate")
 
