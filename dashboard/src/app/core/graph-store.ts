@@ -1,6 +1,4 @@
 import Graph from 'graphology';
-import forceAtlas2 from 'graphology-layout-forceatlas2';
-import { circular } from 'graphology-layout';
 import { themeColor } from './color';
 import { typeColor } from './types';
 
@@ -30,7 +28,8 @@ export type ColorBy = 'type' | 'community';
 
 const COMMUNITY_HUES = ['#3987e5', '#d95926', '#199e70', '#c98500', '#d55181', '#9085e9', '#008300', '#e66767'];
 
-/** Build a graphology graph from API rows, lay it out, and size/color nodes by the chosen rules. */
+/** Build a graphology graph from API rows and size/color nodes by the chosen rules. Layout is the
+ *  renderer's job (core/graph-scene). */
 export function buildGraph(nodes: GraphNode[], edges: GraphEdge[], options: { sizeBy: SizeBy; colorBy: ColorBy }): Graph {
   const graph = new Graph({ multi: true, type: 'directed' });
   const values = nodes.map((n) => metricOf(n, options.sizeBy));
@@ -49,8 +48,6 @@ export function buildGraph(nodes: GraphNode[], edges: GraphEdge[], options: { si
       mention_count: node.mention_count ?? 0,
       community,
       metrics: node.metrics ?? {},
-      x: Math.random(),
-      y: Math.random(),
     });
   }
   for (const edge of edges) {
@@ -62,18 +59,9 @@ export function buildGraph(nodes: GraphNode[], edges: GraphEdge[], options: { si
       color: themeColor('--edge-ink', '#667788'),
       confidence: edge.confidence ?? 1,
       proposed: edge.proposed ?? false,
-      type: 'arrow',
     });
   }
-  layout(graph);
   return graph;
-}
-
-export function layout(graph: Graph): void {
-  if (graph.order === 0) return;
-  circular.assign(graph, { scale: 100 });
-  const settings = forceAtlas2.inferSettings(graph);
-  forceAtlas2.assign(graph, { iterations: graph.order > 800 ? 120 : 300, settings: { ...settings, gravity: 1, scalingRatio: 8, barnesHutOptimize: graph.order > 400 } });
 }
 
 export function metricOf(node: GraphNode, sizeBy: SizeBy): number {
@@ -82,7 +70,7 @@ export function metricOf(node: GraphNode, sizeBy: SizeBy): number {
 }
 
 export function communityColor(community: number): string {
-  if (community < 0) return 'var(--edge-ink)';
+  if (community < 0) return themeColor('--edge-ink', '#8a93a8');
   if (community >= COMMUNITY_HUES.length) return '#7a8295';
   return COMMUNITY_HUES[community];
 }

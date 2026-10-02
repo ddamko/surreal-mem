@@ -35,6 +35,11 @@
       </select></label>
     <label class="flex items-center gap-2 text-xs"><span class="text-base-content/60">Max nodes</span>
       <input type="range" min="50" max="3000" step="50" class="range range-xs w-28" [value]="limit()" (change)="limit.set(+$any($event.target).value)" /><span class="mono w-10">{{ limit() }}</span></label>
+    <div class="join">
+      <button class="btn btn-xs join-item" [class.btn-primary]="mode() === '2d'" (click)="mode.set('2d')">2D</button>
+      <button class="btn btn-xs join-item" [class.btn-primary]="mode() === '3d'" (click)="mode.set('3d')">3D</button>
+    </div>
+    <button class="btn btn-ghost btn-xs" (click)="fit()" title="Frame the whole graph (double-click the canvas)">Fit</button>
     <button class="btn btn-ghost btn-xs" (click)="relayout()">Re-layout</button>
     <span class="ml-auto text-xs text-base-content/60">{{ status() }}</span>
   </header>

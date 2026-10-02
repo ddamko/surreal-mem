@@ -89,7 +89,7 @@ provenance from every memory back to its source message, and an MCP tool surface
 | 16 | MCP | One core, two entrypoints (HTTP at `/mcp`, stdio command); official `mcp` SDK; Neo4j-style tool surface incl. read-only `graph_query`. |
 | 17 | Dashboard transport | Service only: REST + one typed WebSocket relay of live queries. |
 | 18 | Frontend | Angular 22 (signals) + Tailwind 4 + daisyUI 5; types generated from OpenAPI. |
-| 19 | Graph canvas | Sigma.js 3 + graphology. |
+| 19 | Graph canvas | ~~Sigma.js 3 + graphology.~~ Amended 2026-10-02: our own Three.js renderer (ADR-0034); graphology kept for client-side queries. |
 | 20 | Charts | Apache ECharts; UMAP computed server-side (2D and 3D). |
 | 21 | Pages | Overview, Graph Explorer, Retrieval Playground, Conversations, Analytics, Vector Space, Curation, Operations, built in that order. |
 | 22 | Analytics | PageRank, degree, sampled betweenness, Louvain materialized by a scheduled networkx job; SurrealQL aggregates on demand. |

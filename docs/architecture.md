@@ -135,7 +135,7 @@ one fixed hue per entity type, validated with the dataviz palette checker.
 | Page | What it shows | Libraries |
 |---|---|---|
 | Overview | counts, 30-day growth, live arrivals, the Three.js constellation | ECharts, Three.js |
-| Graph explorer | filtered graph, neighbourhood panel, expand, shortest path, archive | Sigma.js, graphology (ForceAtlas2) |
+| Graph explorer | filtered graph, neighbourhood panel, expand, shortest path, archive, 2D/3D | own Three.js renderer (`core/graph-scene`), d3-force-3d, graphology |
 | Retrieval | context pack or ranked search with every score component | — |
 | Conversations | turns with extraction status and mentioned entities, traces | — |
 | Analytics | centrality, communities, kinds, type flows, co-mentions, fact health | ECharts |
@@ -160,7 +160,7 @@ backend/src/surrealmem/
     application/    use cases
     adapters/       SurrealDB repositories, HTTP routers, MCP tools, inference clients
 surreal/migrations/ NNNN_name.surql applied by the Python runner (`surrealmem migrate`)
-dashboard/          Angular 22 app (Tailwind 4, daisyUI 5, Sigma.js, ECharts, Three.js)
+dashboard/          Angular 22 app (Tailwind 4, daisyUI 5, Three.js, ECharts, d3-force-3d)
 ops/                systemd user units + model recipes for llama-server (Phase 3)
 integrations/claude-code/  MCP + hooks plugin (Phase 4)
 ```

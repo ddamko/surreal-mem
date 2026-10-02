@@ -20,6 +20,13 @@ async function collectErrors(page: Page): Promise<string[]> {
   return errors;
 }
 
+// The production bundle ships without a token; dev builds default to `change-me`. Use the real
+// one when the environment has it (`set -a; . .env` before `just e2e`).
+test.beforeEach(async ({ page }) => {
+  const token = process.env['SURREALMEM_API_TOKEN'];
+  if (token) await page.addInitScript((t) => localStorage.setItem('surrealmem.token', t), token);
+});
+
 for (const { path, heading } of PAGES) {
   test(`${path} renders without errors`, async ({ page }) => {
     const errors = await collectErrors(page);

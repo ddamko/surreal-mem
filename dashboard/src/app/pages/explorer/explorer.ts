@@ -1,10 +1,12 @@
 import { DecimalPipe, SlicePipe } from '@angular/common';
 import { Component, DestroyRef, ElementRef, afterNextRender, computed, effect, inject, resource, signal, viewChild } from '@angular/core';
 import Graph from 'graphology';
-import Sigma from 'sigma';
 import { ApiService } from '../../core/api';
 import { themeColor } from '../../core/color';
+import { GraphScene } from '../../core/graph-scene/graph-scene';
+import type { GraphInput, SceneMode, SceneTheme } from '../../core/graph-scene/types';
 import { SpaceService } from '../../core/space';
+import { ThemeService } from '../../core/theme';
 import { BASE_TYPES, compact, typeColor } from '../../core/types';
 import { buildGraph, type ColorBy, type GraphEdge, type GraphNode, type SizeBy } from '../../core/graph-store';
 
@@ -24,14 +26,16 @@ export class ExplorerPage {
   private readonly api = inject(ApiService);
   private readonly destroyRef = inject(DestroyRef);
   protected readonly space = inject(SpaceService);
+  private readonly themeService = inject(ThemeService);
   protected readonly baseTypes = BASE_TYPES;
   protected readonly compact = compact;
   protected readonly typeColor = typeColor;
 
   private readonly canvas = viewChild.required<ElementRef<HTMLDivElement>>('canvas');
-  private sigma: Sigma | null = null;
+  private scene: GraphScene | null = null;
   private graph: Graph | null = null;
 
+  protected readonly mode = signal<SceneMode>('2d');
   protected readonly enabledTypes = signal<Set<string>>(new Set(BASE_TYPES));
   protected readonly kinds = signal<Set<string>>(new Set());
   protected readonly limit = signal(400);
@@ -103,69 +107,61 @@ export class ExplorerPage {
   constructor() {
     afterNextRender(() => this.mount());
     effect(() => {
+      this.themeService.theme();
       const data = this.graphData.hasValue() ? this.graphData.value() : null;
       const sizeBy = this.sizeBy();
       const colorBy = this.colorBy();
-      if (!data || !this.sigma) return;
+      if (!data) return;
       this.graph = buildGraph(data.nodes, data.edges, { sizeBy, colorBy });
-      this.sigma.setGraph(this.graph);
-      this.sigma.refresh();
+      this.pushGraph();
       this.status.set(`${data.nodes.length} entities · ${data.edges.length} relationships`);
     });
     effect(() => {
-      this.selected();
-      this.hovered();
-      this.pathEdges();
-      this.sigma?.refresh();
+      const focus = { hovered: this.hovered(), selected: this.selected(), pathEdges: this.pathEdges() };
+      this.scene?.setFocus(focus);
+    });
+    effect(() => {
+      // Read the signal before the optional chain, or the effect never subscribes while the scene is null.
+      const mode = this.mode();
+      this.scene?.setMode(mode);
     });
   }
 
   private mount(): void {
-    const container = this.canvas().nativeElement;
-    const ink = themeColor('--edge-ink', '#666677');
-    const text = themeColor('--color-base-content', '#dddddd');
-    const primary = themeColor('--color-primary', '#e8b04b');
-    this.sigma = new Sigma(this.graph ?? new Graph({ multi: true, type: 'directed' }), container, {
-      // The container can be 0 px wide during route transitions; Sigma resizes on the next frame.
-      allowInvalidContainer: true,
-      renderEdgeLabels: false,
-      labelFont: 'Inter Variable, sans-serif',
-      labelSize: 12,
-      labelColor: { color: text },
-      labelRenderedSizeThreshold: 9,
-      defaultEdgeColor: ink,
-      defaultEdgeType: 'arrow',
-      zIndex: true,
-      nodeReducer: (node, data) => {
-        const selected = this.selected();
-        const hovered = this.hovered();
-        const focus = hovered ?? selected;
-        if (!focus || !this.graph) return data;
-        if (node === focus) return { ...data, highlighted: true, zIndex: 2 };
-        if (this.graph.areNeighbors(focus, node)) return { ...data, zIndex: 1 };
-        return { ...data, color: this.dim(data['color'] as string), label: '', zIndex: 0 };
-      },
-      edgeReducer: (edge, data) => {
-        if (this.pathEdges().has(edge)) return { ...data, color: primary, size: 4, zIndex: 3 };
-        const focus = this.hovered() ?? this.selected();
-        if (!focus || !this.graph) return data;
-        const [s, t] = this.graph.extremities(edge);
-        if (s === focus || t === focus) return { ...data, color: text, zIndex: 2 };
-        return { ...data, color: this.dim(ink), hidden: false, zIndex: 0 };
-      },
+    this.scene = new GraphScene(this.canvas().nativeElement, this.sceneTheme(), {
+      nodeClick: (id) => this.select(id),
+      stageClick: () => this.selected.set(null),
+      nodeHover: (id) => this.hovered.set(id),
     });
-    this.sigma.on('clickNode', ({ node }) => this.select(node));
-    this.sigma.on('clickStage', () => this.selected.set(null));
-    this.sigma.on('enterNode', ({ node }) => this.hovered.set(node));
-    this.sigma.on('leaveNode', () => this.hovered.set(null));
+    this.scene.setMode(this.mode());
+    this.pushGraph();
+    this.scene.setFocus({ hovered: this.hovered(), selected: this.selected(), pathEdges: this.pathEdges() });
     this.destroyRef.onDestroy(() => {
-      this.sigma?.kill();
-      this.sigma = null;
+      this.scene?.dispose();
+      this.scene = null;
     });
   }
 
-  private dim(color: string): string {
-    return color.startsWith('#') && color.length === 7 ? `${color}33` : 'rgba(120,128,150,0.15)';
+  private pushGraph(): void {
+    if (!this.scene || !this.graph) return;
+    const input: GraphInput = {
+      nodes: this.graph.mapNodes((id, a) => ({ id, label: String(a['label']), size: Number(a['size']), color: String(a['color']) })),
+      edges: this.graph.mapEdges((id, a, source, target) => ({ id, source, target, kind: String(a['kind']) })),
+    };
+    this.scene.setTheme(this.sceneTheme());
+    this.scene.setGraph(input);
+  }
+
+  private sceneTheme(): SceneTheme {
+    const root = getComputedStyle(document.documentElement);
+    return {
+      text: themeColor('--color-base-content', '#dddddd'),
+      ink: themeColor('--edge-ink', '#8a93a8'),
+      background: themeColor('--color-base-100', '#101420'),
+      primary: themeColor('--color-primary', '#e8b04b'),
+      font: root.getPropertyValue('--font-sans').trim() || 'Inter Variable, sans-serif',
+      mono: root.getPropertyValue('--font-mono').trim() || 'JetBrains Mono Variable, monospace',
+    };
   }
 
   protected toggleType(type: string): void {
@@ -185,10 +181,7 @@ export class ExplorerPage {
   protected select(id: string): void {
     this.selected.set(id);
     this.search.set('');
-    if (this.graph?.hasNode(id) && this.sigma) {
-      const { x, y } = this.graph.getNodeAttributes(id) as { x: number; y: number };
-      this.sigma.getCamera().animate({ x, y, ratio: 0.5 }, { duration: 500 });
-    }
+    if (this.graph?.hasNode(id)) this.scene?.focusNode(id);
   }
 
   protected async expand(id: string): Promise<void> {
@@ -228,10 +221,11 @@ export class ExplorerPage {
   }
 
   protected relayout(): void {
-    if (this.graph && this.graphData.hasValue()) {
-      this.graph = buildGraph(this.graphData.value().nodes, this.graphData.value().edges, { sizeBy: this.sizeBy(), colorBy: this.colorBy() });
-      this.sigma?.setGraph(this.graph);
-    }
+    this.scene?.relayout();
+  }
+
+  protected fit(): void {
+    this.scene?.fit();
   }
 
   protected nameOf(id: string): string {

@@ -10,7 +10,8 @@ Design: `docs/architecture.md`. Decision records: `docs/adr/`.
   `domain/ application/ adapters/`; `shared/` kernel; `bootstrap/` composition root, API, CLI.
   import-linter enforces the layer rules (`just arch`).
 - `surreal/migrations/NNNN_name.surql` schema migrations. Never edit an applied one; add a new file.
-- `dashboard/` Angular 22 + Tailwind 4 + daisyUI 5 (+ Sigma.js, ECharts, Three.js).
+- `dashboard/` Angular 22 + Tailwind 4 + daisyUI 5 (+ Three.js, ECharts, d3-force-3d). The Graph
+  Explorer renderer is ours: `dashboard/src/app/core/graph-scene/` (ADR-0034).
 - `ops/` systemd unit templates (rendered by `surrealmem ops`). `integrations/claude-code/` the Claude
   Code plugin. `backend/Dockerfile`, `dashboard/Dockerfile` + `nginx.conf`, `compose.yaml` (profile
   `full`) for the container stack.
