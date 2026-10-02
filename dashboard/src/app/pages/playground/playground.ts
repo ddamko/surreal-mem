@@ -1,5 +1,5 @@
 import { DecimalPipe } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ApiService } from '../../core/api';
 import { SpaceService } from '../../core/space';
 import { typeColor } from '../../core/types';
@@ -122,12 +122,35 @@ export class PlaygroundPage {
   protected readonly vector = signal(true);
   protected readonly graph = signal(true);
   protected readonly includeShared = signal(true);
+  /** Spaces to retrieve from. Follows the sidebar selection (one space, or all when "All spaces"),
+   *  and can then be widened or narrowed here. `shared` is governed by the toggle below. */
+  protected readonly chosenSpaces = signal<Set<string>>(new Set());
+  protected readonly spaceOptions = computed(() => this.space.spaces().filter((s) => s !== 'shared'));
   protected readonly mode = signal<'context' | 'search'>('context');
   protected readonly busy = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly pack = signal<Pack | null>(null);
   protected readonly result = signal<SearchResult | null>(null);
   protected readonly history = signal<string[]>([]);
+
+  constructor() {
+    effect(() => {
+      const selected = this.space.selected();
+      const options = this.spaceOptions();
+      this.chosenSpaces.set(new Set(selected ? [selected] : options));
+    });
+  }
+
+  protected toggleSpace(name: string): void {
+    const next = new Set(this.chosenSpaces());
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    this.chosenSpaces.set(next);
+  }
+
+  protected chooseAllSpaces(all: boolean): void {
+    this.chosenSpaces.set(new Set(all ? this.spaceOptions() : []));
+  }
 
   protected readonly sections = computed(() => {
     const p = this.pack();
@@ -145,11 +168,18 @@ export class PlaygroundPage {
   protected async run(): Promise<void> {
     const text = this.query().trim();
     if (!text) return;
+    const spaces = [...this.chosenSpaces()];
+    if (!spaces.length && !this.includeShared()) {
+      this.error.set('Pick at least one space.');
+      return;
+    }
     this.busy.set(true);
     this.error.set(null);
+    const [first = 'shared', ...rest] = spaces;
     const body = {
       text,
-      space: this.space.selected() || 'personal',
+      space: first,
+      extra_spaces: rest,
       include_shared: this.includeShared(),
       token_budget: this.budget(),
       hops: this.hops(),

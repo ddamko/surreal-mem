@@ -39,6 +39,7 @@ for (const { path, heading } of PAGES) {
 
 test('retrieval playground returns a context pack', async ({ page }) => {
   await page.goto('/playground');
+  await expect(page.getByTestId('space-picker').locator('label').first()).toBeVisible({ timeout: 15_000 });
   await page.getByPlaceholder(/e\.g\./).fill('derek');
   await page.getByRole('button', { name: 'Retrieve' }).click();
   await expect(page.locator('main')).toContainText(/Context pack|Nothing in memory matched/, { timeout: 20_000 });
