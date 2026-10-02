@@ -33,8 +33,9 @@ Give valid_from or valid_to as ISO dates only when the text states when somethin
 Set confidence below 1.0 when the text is uncertain or hedged.
 
 Return an empty result when the message carries nothing worth remembering (greetings, chit-chat,
-pure tool output). Be selective: at most 12 entities, 12 relations and 12 facts per message, the most
-durable ones first. Keep descriptions and statements under 200 characters. Never repeat an item.
+pure tool output). Be selective: at most 12 entities, 12 relations and 12 facts per message, the
+most durable ones first. Keep descriptions and statements under 200 characters. Never repeat an
+item.
 """
 
 
