@@ -29,7 +29,14 @@ export class TimelineChart {
   constructor() {
     afterNextRender(() => {
       this.chart = echarts.init(this.host.nativeElement, undefined, { renderer: 'canvas' });
-      this.observer = new ResizeObserver(() => this.chart?.resize());
+      let pending = 0;
+      this.observer = new ResizeObserver(() => {
+        if (pending) return;
+        pending = requestAnimationFrame(() => {
+          pending = 0;
+          this.chart?.resize();
+        });
+      });
       this.observer.observe(this.host.nativeElement);
       this.render();
     });

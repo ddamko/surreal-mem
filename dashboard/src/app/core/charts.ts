@@ -25,7 +25,15 @@ export class ChartDirective {
   constructor() {
     afterNextRender(() => {
       this.chart = echarts.init(this.host.nativeElement, undefined, { renderer: 'canvas' });
-      const observer = new ResizeObserver(() => this.chart?.resize());
+      // Resize on the next frame, never inside the observer callback (avoids "ResizeObserver loop").
+      let pending = 0;
+      const observer = new ResizeObserver(() => {
+        if (pending) return;
+        pending = requestAnimationFrame(() => {
+          pending = 0;
+          this.chart?.resize();
+        });
+      });
       observer.observe(this.host.nativeElement);
       this.apply();
     });

@@ -94,6 +94,9 @@ export class GraphScene {
   private tween: Tween | null = null;
   private readonly timer = new THREE.Timer();
   private readonly observer: ResizeObserver;
+  /** Set by the ResizeObserver; the actual work happens in the next frame so the observer callback
+   *  never changes layout itself (that is what "ResizeObserver loop completed" complains about). */
+  private needsResize = true;
   private readonly tmp = new THREE.Vector3();
   private readonly listeners: [string, EventListener, AddEventListenerOptions?][] = [];
 
@@ -107,10 +110,10 @@ export class GraphScene {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     this.renderer.setClearColor(0x000000, 0);
-    Object.assign(this.renderer.domElement.style, { position: 'absolute', inset: '0', display: 'block', touchAction: 'none' });
+    Object.assign(this.renderer.domElement.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', display: 'block', touchAction: 'none' });
     container.appendChild(this.renderer.domElement);
     this.overlay = document.createElement('canvas');
-    Object.assign(this.overlay.style, { position: 'absolute', inset: '0', pointerEvents: 'none' });
+    Object.assign(this.overlay.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none' });
     container.appendChild(this.overlay);
     this.ctx = this.overlay.getContext('2d') as CanvasRenderingContext2D;
 
@@ -158,7 +161,7 @@ export class GraphScene {
     this.listen(el, 'pointerleave', () => this.setHovered(null));
     this.listen(el, 'wheel', (e) => this.onWheel(e as WheelEvent), { passive: false });
     this.listen(el, 'dblclick', () => this.fit());
-    this.observer = new ResizeObserver(() => this.resize());
+    this.observer = new ResizeObserver(() => (this.needsResize = true));
     this.observer.observe(container);
     this.resize();
     this.frame = requestAnimationFrame((t) => this.tick(t));
@@ -473,6 +476,7 @@ export class GraphScene {
 
   private tick(now: number): void {
     this.frame = requestAnimationFrame((t) => this.tick(t));
+    if (this.needsResize) this.resize();
     if (!this.width || !this.height) return;
     this.timer.update(now);
     const moved = this.nodes.length > 0 && this.sim.step();
@@ -644,16 +648,22 @@ export class GraphScene {
   // ------------------------------------------------------------------ camera helpers
 
   private resize(): void {
-    const { clientWidth: w, clientHeight: h } = this.container;
-    if (!w || !h) return;
+    this.needsResize = false;
+    const rect = this.container.getBoundingClientRect();
+    const w = rect.width, h = rect.height;
+    if (!w || !h) {
+      this.width = this.height = 0;
+      return;
+    }
+    if (w === this.width && h === this.height) return;
     this.width = w;
     this.height = h;
-    this.renderer.setSize(w, h);
+    // Drawing buffers only (updateStyle = false): the canvases are sized by CSS, so rounding can
+    // never make them a pixel larger than the container and trigger a scrollbar.
+    this.renderer.setSize(w, h, false);
     const dpr = Math.min(devicePixelRatio, 2);
     this.overlay.width = Math.round(w * dpr);
     this.overlay.height = Math.round(h * dpr);
-    this.overlay.style.width = `${w}px`;
-    this.overlay.style.height = `${h}px`;
     this.ortho.left = -w / 2;
     this.ortho.right = w / 2;
     this.ortho.top = h / 2;

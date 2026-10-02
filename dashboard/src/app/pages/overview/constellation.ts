@@ -25,7 +25,7 @@ export class Constellation {
     const el = this.host.nativeElement;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    renderer.domElement.style.display = 'block';
+    Object.assign(renderer.domElement.style, { display: 'block', width: '100%', height: '100%' });
     el.appendChild(renderer.domElement);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 100);
@@ -79,21 +79,24 @@ export class Constellation {
       else if (event.table === 'fact') seed('fact', new THREE.Color(themeColor('--color-primary', '#e8b04b')));
     });
 
+    let needsResize = true;
     const resize = (): void => {
-      const { clientWidth: w, clientHeight: h } = el;
+      needsResize = false;
+      const { width: w, height: h } = el.getBoundingClientRect();
       if (!w || !h) return;
-      renderer.setSize(w, h);
+      renderer.setSize(w, h, false);
       camera.aspect = w / Math.max(1, h);
       camera.updateProjectionMatrix();
     };
-    const observer = new ResizeObserver(resize);
+    // Observer only flags; the frame loop resizes, so the callback never touches layout.
+    const observer = new ResizeObserver(() => (needsResize = true));
     observer.observe(el);
-    resize();
 
     let frame = 0;
     const timer = new THREE.Timer();
     const tick = (now: number): void => {
       frame = requestAnimationFrame(tick);
+      if (needsResize) resize();
       if (!el.clientWidth || !el.clientHeight) return;
       timer.update(now);
       const dt = Math.min(0.05, timer.getDelta());

@@ -44,7 +44,7 @@
     <span class="ml-auto text-xs text-base-content/60">{{ status() }}</span>
   </header>
 
-  <div class="relative min-h-0 flex-1">
+  <div class="relative min-h-0 flex-1 overflow-hidden">
     <div #canvas class="absolute inset-0"></div>
     @if (graphData.isLoading()) {
       <div class="absolute left-4 top-4 text-xs text-base-content/60">Loading graph…</div>

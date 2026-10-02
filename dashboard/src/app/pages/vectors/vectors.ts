@@ -74,7 +74,7 @@ export class VectorsPage {
     const el = this.canvas().nativeElement;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-    this.renderer.domElement.style.display = 'block';
+    Object.assign(this.renderer.domElement.style, { display: 'block', width: '100%', height: '100%' });
     el.appendChild(this.renderer.domElement);
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1000);
@@ -87,16 +87,18 @@ export class VectorsPage {
     (grid.material as THREE.Material).transparent = true;
     (grid.material as THREE.Material).opacity = 0.35;
     this.scene.add(grid);
+    let needsResize = true;
     const resize = (): void => {
-      const w = el.clientWidth, h = el.clientHeight;
+      needsResize = false;
+      const { width: w, height: h } = el.getBoundingClientRect();
       if (!w || !h) return;
-      this.renderer!.setSize(w, h);
+      this.renderer!.setSize(w, h, false);
       this.camera!.aspect = w / Math.max(1, h);
       this.camera!.updateProjectionMatrix();
     };
-    const observer = new ResizeObserver(resize);
+    // Observer only flags; the frame loop resizes, so the callback never touches layout.
+    const observer = new ResizeObserver(() => (needsResize = true));
     observer.observe(el);
-    resize();
     el.addEventListener('pointermove', (e) => {
       const r = el.getBoundingClientRect();
       this.pointer.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -106,6 +108,7 @@ export class VectorsPage {
     let frame = 0;
     const tick = (): void => {
       frame = requestAnimationFrame(tick);
+      if (needsResize) resize();
       if (!el.clientWidth || !el.clientHeight) return;
       this.controls?.update();
       this.pick();
