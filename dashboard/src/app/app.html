@@ -1,9 +1,48 @@
-<div class="min-h-screen bg-base-100 text-base-content">
-  <header class="navbar border-b border-base-300 px-6">
-    <span class="text-lg font-semibold tracking-tight">surrealmem</span>
-    <span class="badge badge-outline ml-3">dashboard shell</span>
-  </header>
-  <main class="p-6">
+<div class="flex h-screen bg-base-100 text-base-content">
+  <aside class="flex w-60 shrink-0 flex-col border-r border-base-300 bg-base-200/60">
+    <div class="flex items-center gap-3 px-5 pt-5 pb-4">
+      <span class="relative inline-flex h-3 w-3">
+        @if (live.connected()) {
+          <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/50"></span>
+        }
+        <span class="relative inline-flex h-3 w-3 rounded-full" [class.bg-primary]="live.connected()" [class.bg-base-300]="!live.connected()"></span>
+      </span>
+      <div>
+        <div class="text-base font-semibold tracking-tight">surrealmem</div>
+        <div class="text-xs text-base-content/60">{{ live.connected() ? 'live' : 'reconnecting' }} · {{ live.counter() }} events</div>
+      </div>
+    </div>
+    <nav class="flex-1 overflow-y-auto px-2">
+      @for (item of nav; track item.path) {
+        <a [routerLink]="item.path" routerLinkActive="bg-base-300 text-base-content" class="group mb-0.5 block rounded-field px-3 py-2 text-sm text-base-content/75 hover:bg-base-300/60 hover:text-base-content">
+          <div class="font-medium">{{ item.label }}</div>
+          <div class="text-xs text-base-content/50 group-hover:text-base-content/70">{{ item.hint }}</div>
+        </a>
+      }
+    </nav>
+    <div class="border-t border-base-300 p-3">
+      <label class="form-control">
+        <span class="label-text mb-1 text-xs text-base-content/60">Space</span>
+        <select class="select select-sm select-bordered w-full" [value]="space.selected()" (change)="space.select($any($event.target).value)">
+          <option value="">All spaces</option>
+          @for (s of space.spaces(); track s) {
+            <option [value]="s">{{ s }}</option>
+          }
+        </select>
+      </label>
+      <div class="mt-3 flex items-center justify-between">
+        <button class="btn btn-ghost btn-xs" (click)="theme.toggle()">{{ theme.theme() === 'observatory' ? 'Light' : 'Dark' }} theme</button>
+        <details class="dropdown dropdown-top dropdown-end">
+          <summary class="btn btn-ghost btn-xs">API token</summary>
+          <div class="dropdown-content panel z-10 w-64 p-3">
+            <input class="input input-sm input-bordered w-full" type="password" placeholder="Bearer token" [value]="tokenDraft" (input)="tokenDraft = $any($event.target).value" />
+            <button class="btn btn-primary btn-sm mt-2 w-full" (click)="saveToken()">Save and reload</button>
+          </div>
+        </details>
+      </div>
+    </div>
+  </aside>
+  <main class="min-w-0 flex-1 overflow-y-auto">
     <router-outlet />
   </main>
 </div>

@@ -45,6 +45,11 @@ mcp:
 dashboard:
     cd {{dashboard}}; npm start
 
+# Regenerate the dashboard's TypeScript API types from the OpenAPI schema
+api-types:
+    cd {{backend}}; uv run surrealmem openapi | save --force ../dashboard/src/app/api/openapi.json
+    cd {{dashboard}}; npx openapi-typescript src/app/api/openapi.json -o src/app/api/schema.d.ts
+
 # Build the dashboard for production
 build-dashboard:
     cd {{dashboard}}; npm run build

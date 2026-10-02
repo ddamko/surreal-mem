@@ -1,0 +1,48 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e8]:
+      - generic [ref=e9]: surrealmem
+      - generic [ref=e10]: reconnecting · 0 events
+    - navigation [ref=e11]:
+      - link "Overview What the memory holds and how it grows" [ref=e12] [cursor=pointer]:
+        - /url: /overview
+        - generic [ref=e13]: Overview
+        - generic [ref=e14]: What the memory holds and how it grows
+      - link "Graph explorer Entities and their relationships" [ref=e15] [cursor=pointer]:
+        - /url: /explorer
+        - generic [ref=e16]: Graph explorer
+        - generic [ref=e17]: Entities and their relationships
+      - link "Retrieval What an agent would be told" [ref=e18] [cursor=pointer]:
+        - /url: /playground
+        - generic [ref=e19]: Retrieval
+        - generic [ref=e20]: What an agent would be told
+      - link "Conversations Source turns and what was extracted" [ref=e21] [cursor=pointer]:
+        - /url: /conversations
+        - generic [ref=e22]: Conversations
+        - generic [ref=e23]: Source turns and what was extracted
+      - link "Analytics Centrality, communities, kinds, health" [ref=e24] [cursor=pointer]:
+        - /url: /analytics
+        - generic [ref=e25]: Analytics
+        - generic [ref=e26]: Centrality, communities, kinds, health
+      - link "Vector space Embeddings projected in 3D" [ref=e27] [cursor=pointer]:
+        - /url: /vectors
+        - generic [ref=e28]: Vector space
+        - generic [ref=e29]: Embeddings projected in 3D
+      - link "Curation Merges, kinds, archives" [ref=e30] [cursor=pointer]:
+        - /url: /curation
+        - generic [ref=e31]: Curation
+        - generic [ref=e32]: Merges, kinds, archives
+      - link "Operations Jobs, workers, schema" [ref=e33] [cursor=pointer]:
+        - /url: /operations
+        - generic [ref=e34]: Operations
+        - generic [ref=e35]: Jobs, workers, schema
+    - generic [ref=e36]:
+      - generic [ref=e37]:
+        - text: Space
+        - combobox "Space" [ref=e38]:
+          - option "All spaces" [selected]
+      - generic [ref=e39]:
+        - button "Light theme" [ref=e40] [cursor=pointer]
+        - group [ref=e41]:
+          - generic "API token" [ref=e42] [cursor=pointer]
+  - main [ref=e43]

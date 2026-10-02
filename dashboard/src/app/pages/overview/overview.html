@@ -1,0 +1,63 @@
+<section class="relative">
+  <app-constellation class="block h-72 w-full border-b border-base-300" />
+  <div class="pointer-events-none absolute inset-x-0 top-0 flex h-72 flex-col justify-end px-8 pb-6">
+    <h1 class="text-3xl font-semibold tracking-tight">Memory, as the agents see it</h1>
+    <p class="mt-1 max-w-xl text-sm text-base-content/70">
+      Every entity and fact that arrives joins the constellation. Scope is <span class="font-medium text-base-content">{{ space.label() }}</span>.
+    </p>
+  </div>
+</section>
+
+<section class="grid grid-cols-2 gap-3 px-8 py-6 lg:grid-cols-3 xl:grid-cols-6">
+  @for (tile of tiles(); track tile.label) {
+    <div class="panel px-4 py-3">
+      <div class="text-xs text-base-content/60">{{ tile.label }}</div>
+      <div class="stat-figure-mono mt-1 text-2xl font-semibold">{{ compact(tile.value) }}</div>
+      <div class="mt-1 truncate text-xs text-base-content/50" [title]="tile.note">{{ tile.note }}</div>
+    </div>
+  } @empty {
+    @if (overview.error()) {
+      <div class="panel col-span-full p-4 text-sm">
+        Could not reach the API. Check that <span class="mono">just api</span> is running and the token in the sidebar matches <span class="mono">SURREALMEM_API_TOKEN</span>.
+      </div>
+    } @else {
+      <div class="panel col-span-full p-4 text-sm text-base-content/60">Loading counts…</div>
+    }
+  }
+</section>
+
+<section class="grid gap-6 px-8 pb-10 lg:grid-cols-3">
+  <div class="panel p-4 lg:col-span-2">
+    <div class="flex items-baseline justify-between">
+      <h2 class="font-medium">Growth over 30 days</h2>
+      <span class="text-xs text-base-content/50">new records per day</span>
+    </div>
+    @if (timeline.value(); as series) {
+      <app-timeline-chart class="mt-3 block h-64" [series]="series" />
+    } @else {
+      <div class="mt-3 h-64 animate-pulse rounded-box bg-base-300/40"></div>
+    }
+  </div>
+  <div class="panel p-4">
+    <div class="flex items-baseline justify-between">
+      <h2 class="font-medium">Arriving now</h2>
+      <span class="text-xs text-base-content/50">{{ live.connected() ? 'live' : 'reconnecting' }}</span>
+    </div>
+    <ul class="mt-3 space-y-2">
+      @for (event of recent(); track event.at + (event.id ?? '')) {
+        <li class="flex items-start gap-2 text-sm">
+          <span class="type-dot mt-1.5 shrink-0" [style.--type-color]="'var(--type-' + (event.record['base_type'] ?? 'edge') + ')'"></span>
+          <div class="min-w-0 flex-1">
+            <div class="truncate">{{ describe(event) }}</div>
+            <div class="text-xs text-base-content/50">{{ event.table }} · {{ relativeTime(event.at) }}</div>
+          </div>
+        </li>
+      } @empty {
+        <li class="text-sm text-base-content/60">
+          Nothing has arrived since this page opened. Store a message through MCP or run
+          <a routerLink="/operations" class="link">a job</a> and it will show up here.
+        </li>
+      }
+    </ul>
+  </div>
+</section>

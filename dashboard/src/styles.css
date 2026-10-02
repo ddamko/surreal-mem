@@ -1,9 +1,136 @@
 @import "tailwindcss";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+/* Observatory: deep blue-slate instrument surfaces, warm paper ink, brass accent (ADR-0030). */
 @plugin "daisyui" {
-  themes: dim --default, light;
+  themes: false;
+}
+@plugin "daisyui/theme" {
+  name: "observatory";
+  default: true;
+  prefersdark: true;
+  color-scheme: dark;
+  --color-base-100: oklch(18% 0.03 262);
+  --color-base-200: oklch(22% 0.032 262);
+  --color-base-300: oklch(28% 0.034 262);
+  --color-base-content: oklch(92% 0.012 85);
+  --color-primary: oklch(78% 0.13 80);
+  --color-primary-content: oklch(20% 0.04 80);
+  --color-secondary: oklch(72% 0.09 230);
+  --color-secondary-content: oklch(18% 0.03 262);
+  --color-accent: oklch(70% 0.12 150);
+  --color-accent-content: oklch(18% 0.03 262);
+  --color-neutral: oklch(32% 0.03 262);
+  --color-neutral-content: oklch(92% 0.012 85);
+  --color-info: oklch(72% 0.1 230);
+  --color-info-content: oklch(18% 0.03 262);
+  --color-success: oklch(70% 0.14 150);
+  --color-success-content: oklch(18% 0.03 262);
+  --color-warning: oklch(80% 0.14 80);
+  --color-warning-content: oklch(20% 0.04 80);
+  --color-error: oklch(68% 0.18 20);
+  --color-error-content: oklch(98% 0.01 20);
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.625rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+@plugin "daisyui/theme" {
+  name: "observatory-light";
+  color-scheme: light;
+  --color-base-100: oklch(97% 0.008 85);
+  --color-base-200: oklch(94% 0.01 85);
+  --color-base-300: oklch(89% 0.012 85);
+  --color-base-content: oklch(22% 0.03 262);
+  --color-primary: oklch(58% 0.13 70);
+  --color-primary-content: oklch(98% 0.01 85);
+  --color-secondary: oklch(52% 0.11 240);
+  --color-secondary-content: oklch(98% 0.01 85);
+  --color-accent: oklch(52% 0.13 155);
+  --color-accent-content: oklch(98% 0.01 85);
+  --color-neutral: oklch(30% 0.03 262);
+  --color-neutral-content: oklch(97% 0.008 85);
+  --color-info: oklch(52% 0.11 240);
+  --color-info-content: oklch(98% 0.01 85);
+  --color-success: oklch(50% 0.14 150);
+  --color-success-content: oklch(98% 0.01 85);
+  --color-warning: oklch(62% 0.14 75);
+  --color-warning-content: oklch(20% 0.04 80);
+  --color-error: oklch(55% 0.19 22);
+  --color-error-content: oklch(98% 0.01 20);
+  --radius-selector: 0.5rem;
+  --radius-field: 0.375rem;
+  --radius-box: 0.625rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+/* Entity-type hues: validated adjacent-pair palette (dataviz skill), one fixed hue per base type.
+   Dark steps on the dark surface, light steps on the light one. */
+:root,
+[data-theme="observatory"] {
+  --type-person: #3987e5;
+  --type-organization: #d95926;
+  --type-location: #199e70;
+  --type-event: #c98500;
+  --type-object: #d55181;
+  --type-concept: #9085e9;
+  --edge-ink: oklch(60% 0.02 262);
+  --surface-chart: oklch(18% 0.03 262);
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+}
+[data-theme="observatory-light"] {
+  --type-person: #2a78d6;
+  --type-organization: #eb6834;
+  --type-location: #1baf7a;
+  --type-event: #eda100;
+  --type-object: #e87ba4;
+  --type-concept: #4a3aa7;
+  --edge-ink: oklch(55% 0.02 262);
+  --surface-chart: oklch(97% 0.008 85);
+}
+
+@theme {
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 }
 
 html,
 body {
   height: 100%;
+  font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+}
+.mono {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+.type-dot {
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background: var(--type-color, currentColor);
+}
+.panel {
+  @apply rounded-box border border-base-300 bg-base-200;
+}
+.stat-figure-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

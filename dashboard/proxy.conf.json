@@ -1,0 +1,5 @@
+{
+  "/api": { "target": "http://127.0.0.1:8790", "secure": false, "ws": true },
+  "/mcp": { "target": "http://127.0.0.1:8790", "secure": false },
+  "/health": { "target": "http://127.0.0.1:8790", "secure": false }
+}
