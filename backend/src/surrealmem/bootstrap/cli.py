@@ -99,10 +99,34 @@ def api(
 
 
 @app.command()
-def worker() -> None:
-    """Run the background worker (extraction, reflection, metrics, projection)."""
-    typer.echo("worker: not implemented yet (Phase 3)", err=True)
-    raise typer.Exit(code=2)
+def worker(
+    once: Annotated[bool, typer.Option(help="Process available jobs, then exit")] = False,
+    worker_id: Annotated[str | None, typer.Option(help="Override the worker id")] = None,
+) -> None:
+    """Run the background worker (extraction now; reflection, metrics, projection later)."""
+    from surrealmem.bootstrap.inference import build_embedder, build_extractor
+
+    settings = _settings()
+    if worker_id:
+        settings = settings.model_copy(update={"worker_id": worker_id})
+
+    async def _run() -> int:
+        embedder = build_embedder(settings)
+        container = await build_container(
+            settings, embedder=embedder, extractor=build_extractor(settings)
+        )
+        assert container.services.extraction.worker is not None
+        try:
+            if once:
+                return await container.services.extraction.worker.run_once()
+            await container.services.extraction.worker.run_forever()
+            return container.services.extraction.worker.processed
+        finally:
+            await embedder.close()
+            await container.close()
+
+    processed = asyncio.run(_run())
+    typer.echo(f"processed {processed} job(s)")
 
 
 @app.command()

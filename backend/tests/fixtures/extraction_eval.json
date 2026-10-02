@@ -1,0 +1,41 @@
+[
+  {
+    "id": "intro",
+    "role": "user",
+    "content": "Hi, I'm Derek Damko. I'm a software engineer at WWS Sires in Texas and I'm building surreal-mem, a memory system for agents on top of SurrealDB.",
+    "expect_entities": ["Derek Damko", "WWS Sires", "Texas", "surreal-mem", "SurrealDB"],
+    "expect_types": {"Derek Damko": "person", "WWS Sires": "organization", "Texas": "location"},
+    "expect_kinds": ["WORKS_AT"]
+  },
+  {
+    "id": "preference",
+    "role": "user",
+    "content": "Please remember that I only use Nushell as my shell, and I prefer tabs over spaces in Python.",
+    "expect_entities": ["Nushell"],
+    "expect_kinds": ["PREFERS"],
+    "expect_fact_kinds": ["PREFERS"]
+  },
+  {
+    "id": "move",
+    "role": "user",
+    "content": "Update: in June 2024 I moved from Austin to Denver.",
+    "expect_entities": ["Austin", "Denver"],
+    "expect_types": {"Austin": "location", "Denver": "location"},
+    "expect_fact_kinds": ["LIVES_IN"],
+    "expect_valid_from": "2024-06"
+  },
+  {
+    "id": "decision",
+    "role": "assistant",
+    "content": "Decision recorded: the dashboard will use Angular 22 with Tailwind 4 and daisyUI 5, and Sigma.js renders the graph explorer.",
+    "expect_entities": ["Angular", "Tailwind", "daisyUI", "Sigma.js"],
+    "expect_kinds": ["USES"]
+  },
+  {
+    "id": "chitchat",
+    "role": "user",
+    "content": "thanks, that looks good!",
+    "expect_entities": [],
+    "expect_empty": true
+  }
+]

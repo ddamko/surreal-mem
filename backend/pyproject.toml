@@ -10,6 +10,7 @@ dependencies = [
     "fastapi>=0.142.2,<1",
     "httpx>=0.28.1,<1",
     "pydantic>=2.13.5,<3",
+    "pydantic-ai-slim[openai]>=2.53.0",
     "pydantic-settings>=2.15.0,<3",
     "structlog>=26.1.0,<27",
     "surrealdb[embedded]==3.0.0b8",

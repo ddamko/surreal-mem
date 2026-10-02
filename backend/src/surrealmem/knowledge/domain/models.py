@@ -212,3 +212,34 @@ class EntityNeighborhood(BaseModel):
 class ScoredEntity(BaseModel):
     entity: Entity
     score: float
+
+
+class MergeStatus(StrEnum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    AUTO = "auto"
+
+
+class MergeCandidate(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    id: str
+    left_id: str
+    right_id: str
+    score: float
+    reason: str
+    status: MergeStatus = MergeStatus.PENDING
+    decided_at: datetime | None = None
+    decided_by: str | None = None
+    created_at: datetime
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ResolutionThresholds(BaseModel):
+    """Cosine-similarity bands for the embedding tier of entity resolution (ADR-0007)."""
+
+    model_config = ConfigDict(frozen=True)
+
+    auto_merge: float = Field(default=0.92, ge=0.0, le=1.0)
+    review: float = Field(default=0.80, ge=0.0, le=1.0)

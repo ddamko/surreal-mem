@@ -1,0 +1,26 @@
+[Unit]
+Description=surrealmem embedding model (llama-server, ROCm)
+Documentation=file://{{REPO}}/docs/adr/0010-qwen3-embedding-0-6b-via-llama-server.md
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=exec
+ExecStart={{LLAMA_SERVER}} \
+    --model {{MODELS_DIR}}/{{EMBED_FILE}} \
+    --alias {{EMBED_ALIAS}} \
+    --host 127.0.0.1 --port {{EMBED_PORT}} \
+    --embeddings --pooling last \
+    --n-gpu-layers 999 --ctx-size 8192 --batch-size 8192 --ubatch-size 8192 --parallel 4 \
+    --metrics --no-webui
+ExecStartPost=/usr/bin/curl -fsS --retry 60 --retry-delay 2 --retry-connrefused --retry-all-errors http://127.0.0.1:{{EMBED_PORT}}/health
+TimeoutStartSec=180
+TimeoutStopSec=20
+Restart=on-failure
+RestartSec=5s
+KillMode=mixed
+KillSignal=SIGTERM
+Slice=background-graphical.slice
+
+[Install]
+WantedBy=graphical-session.target

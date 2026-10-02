@@ -38,12 +38,26 @@ class Settings(BaseSettings):
     # Inference
     llm_base_url: str = "http://127.0.0.1:8081/v1"
     llm_model: str = "qwen3-30b-a3b-instruct"
+    llm_api_key: SecretStr | None = None
+    llm_temperature: float = 0.1
+    llm_max_tokens: int = 4096
     llm_fallback_base_url: str | None = None
     llm_fallback_model: str | None = None
     llm_fallback_api_key: SecretStr | None = None
     embed_base_url: str = "http://127.0.0.1:8082/v1"
     embed_model: str = "qwen3-embedding-0.6b"
     embed_dimension: int = Field(default=1024, ge=1)
+    embed_api_key: SecretStr | None = None
+
+    # Extraction and resolution
+    extraction_window: int = Field(default=6, ge=0, le=50)
+    resolution_auto_merge: float = Field(default=0.92, ge=0.0, le=1.0)
+    resolution_review: float = Field(default=0.80, ge=0.0, le=1.0)
+
+    # Worker
+    worker_id: str | None = None
+    worker_poll_seconds: float = 1.0
+    worker_lease_seconds: int = 300
 
     # Observability
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"

@@ -2,7 +2,7 @@
 
 import hashlib
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -50,3 +50,53 @@ class RecordingJobQueue:
     async def enqueue(self, request: JobRequest) -> str:
         self.requests.append(request)
         return f"job:{len(self.requests)}"
+
+
+class StubEmbedder(FakeEmbedder):
+    """FakeEmbedder with pinned vectors for chosen texts, to drive the embedding tier."""
+
+    def __init__(self, pinned: dict[str, list[float]] | None = None, dimension: int = 1024) -> None:
+        super().__init__(dimension=dimension, model_name="stub-embedder")
+        self.pinned = pinned or {}
+
+    def _vector(self, text: str) -> list[float]:
+        for needle, vector in self.pinned.items():
+            if needle in text:
+                return vector
+        return super()._vector(text)
+
+
+def unit_vector(dimension: int, *, axis: int, tilt: float = 0.0) -> list[float]:
+    """A unit vector along ``axis``, optionally tilted toward axis+1 by ``tilt`` (0..1)."""
+    values = [0.0] * dimension
+    values[axis] = math.sqrt(1.0 - tilt * tilt)
+    values[(axis + 1) % dimension] = tilt
+    return values
+
+
+class FakeExtractor:
+    """Returns a canned ExtractionResult per substring of the message, else an empty result."""
+
+    def __init__(
+        self, canned: dict[str, Any] | None = None, *, fail_with: Exception | None = None
+    ) -> None:
+        from surrealmem.extraction.domain import ExtractionResult
+
+        self.canned = {k: ExtractionResult.model_validate(v) for k, v in (canned or {}).items()}
+        self.fail_with = fail_with
+        self.contexts: list[Any] = []
+
+    @property
+    def name(self) -> str:
+        return "fake"
+
+    async def extract(self, context: Any) -> Any:
+        from surrealmem.extraction.domain import ExtractionResult
+
+        self.contexts.append(context)
+        if self.fail_with is not None:
+            raise self.fail_with
+        for needle, result in self.canned.items():
+            if needle in context.content:
+                return result
+        return ExtractionResult()

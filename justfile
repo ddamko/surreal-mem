@@ -89,13 +89,29 @@ eval:
 # Everything CI runs
 check: lint typecheck arch test build-dashboard
 
-# Download inference models (Phase 3)
+# Download the GGUF models (idempotent)
 models:
-    print "models: defined in Phase 3 (ops/)"
+    nu scripts/inference.nu models
 
-# Install and start the inference units (Phase 3)
+# Render, install and start the llama-server user units, then wait for health
 inference:
-    print "inference: defined in Phase 3 (ops/)"
+    nu scripts/inference.nu install
+
+# Print the rendered units without installing
+inference-dry-run:
+    nu scripts/inference.nu install --dry-run
+
+# Unit state and health endpoints
+inference-status:
+    nu scripts/inference.nu status
+
+# Stop and disable the inference units
+inference-stop:
+    nu scripts/inference.nu stop
+
+# Run the worker once over the queued jobs
+worker-once:
+    cd {{backend}}; uv run surrealmem worker --once
 
 # Seed the database (Phase 5)
 seed:

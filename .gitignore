@@ -29,3 +29,4 @@ models/
 .idea/
 .vscode/
 .DS_Store
+inference.local.env

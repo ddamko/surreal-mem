@@ -1,23 +1,28 @@
 """Knowledge use cases: resolve-or-create entities, relationships, bi-temporal facts, lookups."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from surrealmem.knowledge.domain import (
     PREFERENCE_KIND,
     BaseType,
     Entity,
+    EntityMerger,
     EntityNeighborhood,
     EntityNotFound,
     EntityRepository,
     Fact,
     FactNotFound,
     FactRepository,
+    MergeCandidate,
+    MergeCandidateRepository,
+    MergeStatus,
     NewEntity,
     NewFact,
     NewRelationship,
     Relationship,
     RelationshipRepository,
+    ResolutionThresholds,
     ScoredEntity,
 )
 from surrealmem.shared.domain import normalize_name, validate_space
@@ -33,13 +38,18 @@ def entity_text(name: str, base_type: BaseType, description: str | None) -> str:
 
 @dataclass(slots=True)
 class UpsertEntity:
-    """Deterministic resolution tiers (ADR-0007): exact normalized name+type, then alias table.
+    """Tiered entity resolution (ADR-0007).
 
-    The embedding tier and the review queue are added by the extraction slice's resolver.
+    1. exact normalized name + base type, 2. alias table, 3. nearest neighbour over entity
+    embeddings of the same base type: above ``auto_merge`` the mention is attached to the existing
+    entity (and the new name becomes an alias); between ``review`` and ``auto_merge`` a new entity
+    is created together with a merge candidate for the dashboard.
     """
 
     entities: EntityRepository
     embedder: Embedder | None = None
+    candidates: MergeCandidateRepository | None = None
+    thresholds: ResolutionThresholds = field(default_factory=ResolutionThresholds)
 
     async def __call__(self, data: NewEntity) -> tuple[Entity, bool]:
         """Return the entity and whether it was newly created."""
@@ -50,19 +60,11 @@ class UpsertEntity:
         if existing is None:
             existing = await self.entities.find_by_alias(data.base_type, key)
         if existing is not None:
-            touched = await self.entities.touch(
-                existing.id,
-                space=data.space,
-                seen_at=data.seen_at,
-                description=data.description,
-                confidence=data.confidence,
-            )
-            for alias in data.aliases:
-                await self.entities.add_alias(existing.id, alias)
-            return touched, False
+            return await self._attach(existing, data, extra_alias=None), False
 
         embedding: list[float] | None = None
         model: str | None = None
+        nearest: ScoredEntity | None = None
         if self.embedder is not None:
             embedding = (
                 await self.embedder.embed(
@@ -70,10 +72,98 @@ class UpsertEntity:
                 )
             )[0]
             model = self.embedder.model_name
+            neighbours = await self.entities.search_vector(
+                embedding, base_type=data.base_type, limit=3
+            )
+            nearest = neighbours[0] if neighbours else None
+            if nearest is not None and nearest.score >= self.thresholds.auto_merge:
+                return await self._attach(nearest.entity, data, extra_alias=data.name), False
+
         created = await self.entities.create(data, embedding=embedding, model=model)
         for alias in data.aliases:
             await self.entities.add_alias(created.id, alias)
+        if (
+            nearest is not None
+            and self.candidates is not None
+            and nearest.score >= self.thresholds.review
+        ):
+            await self.candidates.propose(
+                created.id, nearest.entity.id, score=nearest.score, reason="embedding"
+            )
         return created, True
+
+    async def _attach(self, target: Entity, data: NewEntity, *, extra_alias: str | None) -> Entity:
+        for alias in data.aliases:
+            await self.entities.add_alias(target.id, alias)
+        if extra_alias is not None and normalize_name(extra_alias) != target.name_key:
+            await self.entities.add_alias(target.id, extra_alias, source="extraction")
+        return await self.entities.touch(
+            target.id,
+            space=data.space,
+            seen_at=data.seen_at,
+            description=data.description,
+            confidence=data.confidence,
+        )
+
+
+@dataclass(slots=True)
+class MergeEntities:
+    """Merge ``loser`` into ``winner`` and record the decision on the candidate, if any."""
+
+    merger: EntityMerger
+    entities: EntityRepository
+    candidates: MergeCandidateRepository
+
+    async def __call__(
+        self,
+        loser_id: str,
+        winner_id: str,
+        *,
+        reason: str = "manual",
+        score: float | None = None,
+        merged_by: str = "user",
+        candidate_id: str | None = None,
+    ) -> Entity:
+        for entity_id in (loser_id, winner_id):
+            if await self.entities.get(entity_id) is None:
+                raise EntityNotFound(entity_id)
+        winner = await self.merger.merge(
+            loser_id, winner_id, reason=reason, score=score, merged_by=merged_by
+        )
+        if candidate_id is not None:
+            await self.candidates.decide(
+                candidate_id, status=MergeStatus.APPROVED, decided_by=merged_by
+            )
+        return winner
+
+
+@dataclass(slots=True)
+class ReviewMergeCandidate:
+    """Approve (merge left into right) or reject a candidate from the dashboard queue."""
+
+    candidates: MergeCandidateRepository
+    merge: MergeEntities
+
+    async def __call__(
+        self, candidate_id: str, *, approve: bool, decided_by: str = "user"
+    ) -> MergeCandidate:
+        candidate = await self.candidates.get(candidate_id)
+        if candidate is None:
+            raise LookupError(candidate_id)
+        if approve:
+            await self.merge(
+                candidate.left_id,
+                candidate.right_id,
+                reason="review",
+                score=candidate.score,
+                merged_by=decided_by,
+                candidate_id=candidate_id,
+            )
+            refreshed = await self.candidates.get(candidate_id)
+            return refreshed if refreshed is not None else candidate
+        return await self.candidates.decide(
+            candidate_id, status=MergeStatus.REJECTED, decided_by=decided_by
+        )
 
 
 @dataclass(slots=True)

@@ -8,6 +8,8 @@ from surrealmem.knowledge.domain.models import (
     EntityPatch,
     Fact,
     FactStatus,
+    MergeCandidate,
+    MergeStatus,
     NewEntity,
     NewFact,
     NewRelationship,
@@ -146,3 +148,51 @@ class FactRepository(Protocol):
     async def set_embedding(self, fact_id: str, embedding: list[float], model: str) -> None: ...
 
     async def count_by_status(self) -> dict[str, int]: ...
+
+
+class ProvenanceRepository(Protocol):
+    """mentions (message → entity) and extracted_from (fact | entity | edge → message)."""
+
+    async def link_mention(
+        self, message_id: str, entity_id: str, *, confidence: float = 1.0
+    ) -> None: ...
+
+    async def link_source(
+        self,
+        record_id: str,
+        message_id: str,
+        *,
+        extractor: str,
+        model: str | None = None,
+        confidence: float = 1.0,
+    ) -> None: ...
+
+    async def sources_of(self, record_id: str) -> list[str]:
+        """Message ids a record was extracted from."""
+        ...
+
+    async def mentioned_in(self, entity_id: str, *, limit: int = 50) -> list[str]: ...
+
+
+class MergeCandidateRepository(Protocol):
+    async def propose(
+        self, left_id: str, right_id: str, *, score: float, reason: str
+    ) -> MergeCandidate: ...
+
+    async def get(self, candidate_id: str) -> MergeCandidate | None: ...
+
+    async def list(
+        self, *, status: MergeStatus | None = None, limit: int = 100
+    ) -> list[MergeCandidate]: ...
+
+    async def decide(
+        self, candidate_id: str, *, status: MergeStatus, decided_by: str
+    ) -> MergeCandidate: ...
+
+
+class EntityMerger(Protocol):
+    async def merge(
+        self, loser_id: str, winner_id: str, *, reason: str, score: float | None, merged_by: str
+    ) -> Entity:
+        """Move every edge, fact, alias and mention from loser to winner; archive the loser."""
+        ...
