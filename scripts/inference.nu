@@ -1,6 +1,7 @@
 #!/usr/bin/env nu
 # Manage the surrealmem inference units (llama-server for the instruct and embedding models).
 #
+#   nu scripts/inference.nu build             # clone + build llama.cpp with HIP for this GPU (idempotent)
 #   nu scripts/inference.nu models            # download GGUFs (idempotent)
 #   nu scripts/inference.nu install           # render unit templates, install, enable --now, wait for health
 #   nu scripts/inference.nu install --dry-run # print the rendered units only
@@ -36,6 +37,31 @@ def units []: nothing -> list<string> { ["surrealmem-llm", "surrealmem-embed"] }
 
 def health-url [cfg: record, unit: string]: nothing -> string {
     if $unit == "surrealmem-llm" { $"http://127.0.0.1:($cfg.LLM_PORT)/health" } else { $"http://127.0.0.1:($cfg.EMBED_PORT)/health" }
+}
+
+# Clone llama.cpp and build llama-server with HIP for the GPU arch in LLAMA_ARCH (default gfx1151).
+# The result lands at LLAMA_SRC/build-hip/bin/llama-server, which is the default LLAMA_SERVER.
+def "main build" [--force]: nothing -> nothing {
+    let cfg = (config)
+    let src = ($cfg | get -o LLAMA_SRC | default ($env.HOME | path join .local share surrealmem llama.cpp))
+    let arch = ($cfg | get -o LLAMA_ARCH | default "gfx1151")
+    let binary = ($src | path join build-hip bin llama-server)
+    if ($binary | path exists) and not $force {
+        print $"present  ($binary) \(use --force to rebuild)"
+        return
+    }
+    if not ($src | path join .git | path exists) {
+        print $"clone    ($src)"
+        ^git clone --depth 1 https://github.com/ggml-org/llama.cpp $src
+    }
+    let hipcxx = $"(^/opt/rocm/bin/hipconfig -l | str trim)/clang"
+    let hip_path = (^/opt/rocm/bin/hipconfig -R | str trim)
+    print $"configure HIP for ($arch)"
+    with-env { HIPCXX: $hipcxx, HIP_PATH: $hip_path } {
+        ^cmake -S $src -B ($src | path join build-hip) -G Ninja -DCMAKE_BUILD_TYPE=Release -DGGML_HIP=ON $"-DAMDGPU_TARGETS=($arch)" $"-DCMAKE_HIP_ARCHITECTURES=($arch)" -DLLAMA_BUILD_TESTS=OFF -DLLAMA_BUILD_EXAMPLES=OFF -DLLAMA_BUILD_TOOLS=ON -DLLAMA_BUILD_SERVER=ON
+        ^cmake --build ($src | path join build-hip) --target llama-server -j (sys cpu | length)
+    }
+    print $"built    ($binary)"
 }
 
 # Download the GGUF models into MODELS_DIR.
@@ -98,5 +124,5 @@ def "main stop" []: nothing -> nothing {
 }
 
 def main []: nothing -> nothing {
-    print "usage: nu scripts/inference.nu <models|install [--dry-run]|status|stop>"
+    print "usage: nu scripts/inference.nu <build [--force]|models|install [--dry-run]|status|stop>"
 }

@@ -17,7 +17,13 @@ class Embedder(Protocol):
     @property
     def dimension(self) -> int: ...
 
-    async def embed(self, texts: Sequence[str]) -> list[list[float]]: ...
+    async def embed(self, texts: Sequence[str]) -> list[list[float]]:
+        """Embed documents (memories, entity descriptions, messages)."""
+        ...
+
+    async def embed_queries(self, texts: Sequence[str]) -> list[list[float]]:
+        """Embed retrieval queries (asymmetric models add an instruction prefix)."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)

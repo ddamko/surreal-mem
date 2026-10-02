@@ -89,6 +89,10 @@ eval:
 # Everything CI runs
 check: lint typecheck arch test build-dashboard
 
+# Build llama.cpp with HIP for this GPU (idempotent; --force via the script)
+llama-build:
+    nu scripts/inference.nu build
+
 # Download the GGUF models (idempotent)
 models:
     nu scripts/inference.nu models

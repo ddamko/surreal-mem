@@ -55,18 +55,24 @@ Temporal fields on `fact`: `valid_from`/`valid_to` (world time) and
 `recorded_at`/`invalidated_at`/`superseded_by` (system belief). Nothing is deleted automatically;
 superseded facts are invalidated and low-salience memories are archived.
 
-## 3. Write path (Phase 2 delivers steps 1, 3 and 4 as use cases; the worker arrives in Phase 3)
+## 3. Write path (built in Phases 2 and 3)
 
 1. `store_message` writes the `message` and a `job` row in one transaction and returns immediately.
-2. The worker claims the job under a lease, builds a window of the previous messages, and calls the
-   `Extractor` (pydantic-ai structured output against the local instruct model, JSON-schema enforced).
+2. The worker (`surrealmem worker`, `extraction/application/worker.py`) claims the job under a lease
+   (`claimed_by`, `lease_until`, heartbeat every lease/3), builds a window of the previous messages,
+   and calls the `Extractor` (pydantic-ai `NativeOutput` against the local instruct model, so the
+   JSON schema is enforced by llama.cpp's grammar; Venice is a `FallbackModel`). Failures requeue with
+   exponential backoff until `max_attempts`, then the job is `dead` and the message `failed`.
 3. Entities are resolved in tiers (exact normalized name+type → aliases → same-type embedding kNN);
    confident matches merge, ambiguous ones become `merge_candidate` rows, the rest are created.
 4. Facts are embedded, written, and reconciled against existing facts on the same subject and
    predicate: contradictions invalidate the predecessor and record `superseded_by`.
 5. `related_to` edges, `mentions` and `extracted_from` provenance are written in the same transaction.
-6. A reflection job runs when a conversation goes idle: summaries, observations, contradiction flags,
-   salience updates, archiving.
+6. *(planned)* A reflection job runs when a conversation goes idle: summaries, observations,
+   contradiction flags, salience updates, archiving.
+
+The extraction slice never imports conversations or knowledge: it defines `MessageSource` and
+`MemoryWriter` ports, implemented in `bootstrap/glue.py` on top of the other slices.
 
 ## 4. Read path (planned, Phase 4)
 
@@ -122,6 +128,10 @@ Cross-slice composition happens only in `bootstrap`.
   merge candidates).
 
 ## 7. Operations
+
+Inference runs as two systemd user units rendered from `ops/systemd/*.tmpl` by
+`scripts/inference.nu` (`just llama-build`, `just models`, `just inference`, `just inference-status`).
+The llama.cpp binary is built by the project for the exact GPU architecture and ROCm version.
 
 - `just up` starts SurrealDB from `compose.yaml` (runs as the host user on `./data/surrealdb`).
 - `just migrate` applies migrations; `just migrate-status` reports drift.

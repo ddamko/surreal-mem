@@ -21,7 +21,17 @@ Design: `docs/architecture.md`. Decision records: `docs/adr/`.
 
 ## Conventions
 
-- SurrealDB SDK: multi-statement scripts go through `run_script` (checks every statement status);
-  `query()` only returns the first statement's result.
+- SurrealDB SDK (`surrealdb[embedded]==3.0.0b8`, embedded engine 3.2.4, server 3.3): multi-statement
+  scripts go through `run_script`, which checks every statement and surfaces the real error inside a
+  failed transaction. Pick the row-returning statement of a transaction with `rows_with()` and make
+  side-effect statements `RETURN NONE`.
+- SurrealQL 3.x rules learned the hard way: `TYPE object FLEXIBLE`, `array<object> FLEXIBLE`,
+  `SCHEMAFULL TYPE RELATION IN a OUT b ENFORCED`, `FULLTEXT ANALYZER x BM25`, `type::record()`,
+  ORDER BY fields must be selected, prefer `WHERE $flag = true` over IF/ELSE inside LET, bind a
+  subquery to a variable before `FOR $x IN $var { ... }`, no `math::min` on datetimes.
+- Slices never import each other. Cross-slice needs are ports in the consuming slice's domain,
+  implemented in `bootstrap/glue.py`.
+- Inference is reached only over HTTP (`ops/`, `just inference`). Tests use `FakeEmbedder` and
+  `FakeExtractor` from `tests/fakes.py`; `pytest -m live` runs the real models.
 - Errors over HTTP are RFC 9457 Problem Details. Every request and job carries a correlation id.
 - Facts are never deleted by the system; they are invalidated or archived.

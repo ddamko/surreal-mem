@@ -31,6 +31,9 @@ class FakeEmbedder:
         self.calls.append(list(texts))
         return [self._vector(t) for t in texts]
 
+    async def embed_queries(self, texts: Sequence[str]) -> list[list[float]]:
+        return await self.embed(texts)
+
     def _vector(self, text: str) -> list[float]:
         values: list[float] = []
         counter = 0
