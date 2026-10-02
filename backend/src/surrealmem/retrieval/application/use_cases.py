@@ -187,6 +187,16 @@ class Retriever:
                     cand.graph = max(cand.graph, 1.0 if cand.id in direct else 0.6)
             timings["graph"] = (time.perf_counter() - t0) * 1000
 
+        if query.conversation_id is not None:
+            # The agent already holds its own conversation; do not echo it back.
+            candidates = {
+                key: cand
+                for key, cand in candidates.items()
+                if not (
+                    cand.type is MemoryType.MESSAGE
+                    and str(cand.row.get("conversation")) == query.conversation_id
+                )
+            }
         items = self._score(candidates.values())
         items.sort(key=lambda i: i.score.final, reverse=True)
         return items[: query.limit * 3], graph

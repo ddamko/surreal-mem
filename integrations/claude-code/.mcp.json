@@ -1,0 +1,9 @@
+{
+  "surrealmem": {
+    "command": "uv",
+    "args": ["--directory", "${CLAUDE_PLUGIN_ROOT}/../../backend", "run", "surrealmem", "mcp"],
+    "env": {
+      "SURREALMEM_DEFAULT_AGENT_ID": "claude-code"
+    }
+  }
+}

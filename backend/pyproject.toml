@@ -9,6 +9,7 @@ requires-python = ">=3.14,<3.15"
 dependencies = [
     "fastapi>=0.142.2,<1",
     "httpx>=0.28.1,<1",
+    "mcp>=2.2.0",
     "pydantic>=2.13.5,<3",
     "pydantic-ai-slim[openai]>=2.53.0",
     "pydantic-settings>=2.15.0,<3",
@@ -73,6 +74,9 @@ strict = false
 [tool.ruff.lint.per-file-ignores]
 "src/surrealmem/bootstrap/cli.py" = ["TC"]
 "src/surrealmem/bootstrap/health.py" = ["TC"]
+"src/surrealmem/bootstrap/dependencies.py" = ["TC"]
+"src/surrealmem/bootstrap/stats.py" = ["TC"]
+"src/surrealmem/bootstrap/mcp_server.py" = ["TC"]
 "src/surrealmem/**/adapters/http/**" = ["TC"]
 "src/surrealmem/**/adapters/mcp/**" = ["TC"]
 

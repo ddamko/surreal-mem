@@ -1,0 +1,8 @@
+{
+  "name": "surrealmem",
+  "description": "Long-term memory for Claude Code backed by the surrealmem knowledge graph: MCP tools plus hooks that capture every turn and inject relevant context.",
+  "version": "0.1.0",
+  "author": { "name": "Derek Damko" },
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json"
+}

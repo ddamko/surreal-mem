@@ -1,0 +1,37 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv --directory \"${CLAUDE_PLUGIN_ROOT}/../../backend\" run surrealmem hook session-start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv --directory \"${CLAUDE_PLUGIN_ROOT}/../../backend\" run surrealmem hook user-prompt-submit",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv --directory \"${CLAUDE_PLUGIN_ROOT}/../../backend\" run surrealmem hook stop",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

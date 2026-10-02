@@ -20,7 +20,11 @@ async def client(embedded_db: SurrealConnection) -> httpx.AsyncClient:
     )
     app = create_app(settings=settings, container=container)
     transport = httpx.ASGITransport(app=app)
-    return httpx.AsyncClient(transport=transport, base_url="http://test")
+    return httpx.AsyncClient(
+        transport=transport,
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {settings.api_token.get_secret_value()}"},
+    )
 
 
 async def test_liveness(client: httpx.AsyncClient) -> None:

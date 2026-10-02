@@ -49,6 +49,11 @@ class Settings(BaseSettings):
     embed_dimension: int = Field(default=1024, ge=1)
     embed_api_key: SecretStr | None = None
 
+    # Defaults for agents that do not say who they are (MCP stdio, hooks)
+    default_space: str = "personal"
+    default_agent_id: str = "agent"
+    default_user_name: str = "User"
+
     # Extraction and resolution
     extraction_window: int = Field(default=6, ge=0, le=50)
     resolution_auto_merge: float = Field(default=0.92, ge=0.0, le=1.0)

@@ -2,7 +2,7 @@
 
 import asyncio
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -80,6 +80,48 @@ def migrate_status(
 
 
 @app.command()
+def hook(
+    event: Annotated[str, typer.Argument(help="session-start | user-prompt-submit | stop")],
+    space: Annotated[str | None, typer.Option(help="Override the project space")] = None,
+) -> None:
+    """Handle a Claude Code hook: reads the hook JSON on stdin, prints hook JSON on stdout."""
+    import json
+    import sys
+
+    from surrealmem.bootstrap.hooks import HookHandlers
+    from surrealmem.bootstrap.inference import build_embedder
+
+    settings = Settings()
+    configure_logging(level="WARNING", json=True)
+    raw = sys.stdin.read()
+    payload: dict[str, Any] = json.loads(raw) if raw.strip() else {}
+
+    async def _run() -> dict[str, object] | None:
+        embedder = build_embedder(settings)
+        container = await build_container(settings, embedder=embedder)
+        handlers = HookHandlers(container.services, space_override=space)
+        try:
+            if event == "session-start":
+                return await handlers.session_start(payload)
+            if event == "user-prompt-submit":
+                return await handlers.user_prompt_submit(payload)
+            if event == "stop":
+                return await handlers.stop(payload)
+            raise typer.BadParameter(f"unknown hook event {event!r}")
+        finally:
+            await embedder.close()
+            await container.close()
+
+    try:
+        output = asyncio.run(_run())
+    except Exception as exc:  # hooks must never block the user: report and exit 0
+        typer.echo(f"surrealmem hook {event} failed: {exc}", err=True)
+        raise typer.Exit(code=0) from exc
+    if output is not None:
+        typer.echo(json.dumps(output))
+
+
+@app.command()
 def api(
     host: Annotated[str | None, typer.Option()] = None,
     port: Annotated[int | None, typer.Option()] = None,
@@ -130,7 +172,33 @@ def worker(
 
 
 @app.command()
-def mcp() -> None:
-    """Run the MCP server over stdio for Claude Code."""
-    typer.echo("mcp: not implemented yet (Phase 4)", err=True)
-    raise typer.Exit(code=2)
+def mcp(
+    space: Annotated[str | None, typer.Option(help="Default space for tools that omit it")] = None,
+    agent_id: Annotated[str | None, typer.Option(help="Default agent id")] = None,
+) -> None:
+    """Run the MCP server over stdio for Claude Code (uses the core library directly)."""
+    from surrealmem.bootstrap.inference import build_embedder
+    from surrealmem.bootstrap.mcp_server import build_mcp_server
+
+    settings = _settings()
+    if space:
+        settings = settings.model_copy(update={"default_space": space})
+    if agent_id:
+        settings = settings.model_copy(update={"default_agent_id": agent_id})
+
+    async def _serve() -> None:
+        embedder = build_embedder(settings)
+        container = await build_container(settings, embedder=embedder)
+        server = build_mcp_server(
+            lambda: container,
+            default_space=settings.default_space,
+            default_agent_id=settings.default_agent_id,
+            default_user_name=settings.default_user_name,
+        )
+        try:
+            await server.run_stdio_async()
+        finally:
+            await embedder.close()
+            await container.close()
+
+    asyncio.run(_serve())

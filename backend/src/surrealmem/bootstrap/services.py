@@ -35,6 +35,16 @@ from surrealmem.knowledge.application import (
     UpsertEntity,
 )
 from surrealmem.knowledge.domain import ResolutionThresholds
+from surrealmem.reasoning.adapters.surreal.repository import SurrealTraceRepository
+from surrealmem.reasoning.application import (
+    CompleteTrace,
+    GetTrace,
+    ListTraces,
+    RecordStep,
+    StartTrace,
+)
+from surrealmem.retrieval.adapters.surreal.reader import SurrealMemoryReader
+from surrealmem.retrieval.application import Retriever
 from surrealmem.shared.infrastructure.config import Settings
 from surrealmem.shared.infrastructure.surreal.jobs import SurrealJobQueue
 
@@ -79,11 +89,23 @@ class ExtractionServices:
 
 
 @dataclass(slots=True)
+class ReasoningServices:
+    traces: SurrealTraceRepository
+    start: StartTrace
+    record: RecordStep
+    complete: CompleteTrace
+    get: GetTrace
+    list: ListTraces
+
+
+@dataclass(slots=True)
 class Services:
     jobs: SurrealJobQueue
     conversations: ConversationServices
     knowledge: KnowledgeServices
     extraction: ExtractionServices
+    reasoning: ReasoningServices
+    retriever: Retriever
 
 
 def default_worker_id() -> str:
@@ -161,6 +183,17 @@ def build_services(
             poll_seconds=settings.worker_poll_seconds,
         )
 
+    traces = SurrealTraceRepository(db)
+    reasoning = ReasoningServices(
+        traces=traces,
+        start=StartTrace(traces, embedder),
+        record=RecordStep(traces),
+        complete=CompleteTrace(traces),
+        get=GetTrace(traces),
+        list=ListTraces(traces),
+    )
+    retriever = Retriever(SurrealMemoryReader(db), embedder)
+
     return Services(
         jobs=jobs,
         conversations=ConversationServices(
@@ -175,4 +208,6 @@ def build_services(
         extraction=ExtractionServices(
             job_store=job_store, extract_message=extract_message, worker=worker
         ),
+        reasoning=reasoning,
+        retriever=retriever,
     )
