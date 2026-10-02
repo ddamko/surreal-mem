@@ -60,7 +60,7 @@ export class OperationsPage {
   protected summary(job: Job): string {
     const r = job.result as Record<string, unknown> | undefined;
     if (job.error) return job.error;
-    if (!r) return '';
+    if (!r || job.status !== 'done') return '';
     if (job.kind === 'extract') return `${r['entities'] ?? 0} entities · ${r['relationships'] ?? 0} relationships · ${r['facts'] ?? 0} facts`;
     return Object.entries(r).filter(([, v]) => typeof v !== 'object').map(([k, v]) => `${k} ${v}`).join(' · ');
   }

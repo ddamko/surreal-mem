@@ -41,7 +41,8 @@ class Settings(BaseSettings):
     llm_model: str = "qwen3-30b-a3b-instruct"
     llm_api_key: SecretStr | None = None
     llm_temperature: float = 0.1
-    llm_max_tokens: int = 4096
+    llm_max_tokens: int = 2500
+    llm_timeout_seconds: float = 180.0
     llm_fallback_base_url: str | None = None
     llm_fallback_model: str | None = None
     llm_fallback_api_key: SecretStr | None = None

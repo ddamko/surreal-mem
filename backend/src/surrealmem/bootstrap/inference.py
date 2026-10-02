@@ -63,6 +63,7 @@ def build_extractor(settings: Settings) -> PydanticAIExtractor:
         extractor_name=f"llm:{settings.llm_model}",
         temperature=settings.llm_temperature,
         max_tokens=settings.llm_max_tokens,
+        timeout_seconds=settings.llm_timeout_seconds,
     )
 
 
