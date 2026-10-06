@@ -83,12 +83,13 @@ Optional:
 
    Everything else has working defaults for a single machine. The file is commented.
 
-3. Pick one of the two ways to run the stack below. They share the same `.env` and the same
+3. Pick one of the three ways to run the stack below. They share the same `.env` and the same
    database, but they must not run at the same time on the default ports.
 
 ### Option A: everything in containers
 
-The fastest way to see the system. Builds the backend and dashboard images and starts SurrealDB,
+The fastest way to see the system on a machine that has no local inference, or whose inference
+endpoint is reachable from Docker. Builds the backend and dashboard images and starts SurrealDB,
 the migration job, the API, the worker and the dashboard behind nginx.
 
 ```text
@@ -98,11 +99,12 @@ just docker-up
 Then open <http://localhost:4200>. On the first visit a banner asks for the API token; paste the value
 of `SURREALMEM_API_TOKEN`. It is verified against the API before it is stored in your browser.
 
-The containers reach inference through `host.docker.internal`, so either run the host inference
-units with `LLAMA_BIND_HOST=0.0.0.0` (see "Inference options") or point
-`SURREALMEM_CONTAINER_LLM_BASE_URL` and `SURREALMEM_CONTAINER_EMBED_BASE_URL` in `.env` at any
-OpenAI-compatible endpoint. Without reachable inference the API and dashboard work, but the worker
-cannot extract anything and retrieval has no embeddings.
+The containers reach inference through `host.docker.internal`. That requires the llama-server
+units to bind `0.0.0.0` (`LLAMA_BIND_HOST` in `ops/inference.local.env`) **and** a firewall that
+lets bridged containers reach host ports; ufw's default policy drops that traffic. If either is not
+the case, use Option C, or point `SURREALMEM_CONTAINER_LLM_BASE_URL` and
+`SURREALMEM_CONTAINER_EMBED_BASE_URL` at a hosted endpoint. Without reachable inference the API and
+dashboard still work, retrieval degrades to lexical search, and the worker cannot extract.
 
 Useful commands:
 
@@ -136,8 +138,39 @@ just dashboard      # http://localhost:4200 with /api proxied to the API
 The dev dashboard defaults to the token `change-me`. If your `.env` uses anything else, enter it
 once via the sidebar footer ("API token") or the banner.
 
-To run the API and worker as systemd user units instead of terminals: `just services`,
-`just services-status`, `just logs-service worker`, `just services-stop`.
+### Option C: this machine, at boot and login
+
+For a workstation with a local GPU: SurrealDB and the dashboard (nginx on the host network, port
+80) run as containers that Docker restarts at boot; inference, the API and the worker run as
+systemd user units that start at login. The API talks to llama-server over loopback, so inference
+stays private and no firewall rule is needed.
+
+```text
+just host-up        # SurrealDB, migrations, inference units, API + worker units, dashboard on :80
+just host-status    # units, containers, health
+just host-down      # stop the API and worker units and remove the dashboard container
+```
+
+Then open <http://localhost> (or a name of your choosing, see "A local hostname"). `host-up`
+replaces a running `just docker-up` stack but keeps the SurrealDB container and its data. Set
+`DASHBOARD_HOST_PORT` in `.env` if 80 is taken. Everything is enabled for the next boot: the
+containers carry `restart: unless-stopped`, the units are `WantedBy=graphical-session.target`.
+
+#### A local hostname
+
+To reach the dashboard as `http://surrealmem.local` instead of `http://localhost`, the name must
+resolve to this machine. The simplest way is one line in `/etc/hosts` (root required, so this is a
+step for you, not for the tooling):
+
+```nu
+"127.0.0.1 surrealmem.local\n" | sudo tee -a /etc/hosts
+```
+
+mDNS is the alternative if other devices on the network should resolve it too: Avahi can publish
+the name (`avahi-publish -a -R surrealmem.local <this machine's IP>` as a user unit), but the
+resolver must consult mDNS, which on glibc means `mdns_minimal [NOTFOUND=return]` in the `hosts:`
+line of `/etc/nsswitch.conf` (also root). Note that a host firewall such as ufw blocks port 80 from
+other machines until you allow it.
 
 ## Inference options
 
@@ -239,13 +272,15 @@ them with comments. Container-specific overrides live in `compose.yaml`.
 - **Changed `SURREALMEM_API_TOKEN` in `.env`.** Recreate the API container
   (`docker compose --profile full up -d api`) or restart the host unit (`just services`), re-enter the
   token in the dashboard, and restart Claude Code sessions that use the plugin.
-- **Containers cannot reach inference** (worker logs connection errors to `host.docker.internal:8081`,
+- **Containers cannot reach inference** (ufw or another host firewall drops bridged-container traffic to
+  host ports; worker logs connection errors to `host.docker.internal:8081`,
   the Retrieval playground shows "Vector search skipped, embedding service unavailable", a vector-only
   query returns 503). The llama-server units bind `127.0.0.1` by default, which Docker cannot reach.
   Set `LLAMA_BIND_HOST=0.0.0.0` in `ops/inference.local.env` and run `just inference` again (set
   `SURREALMEM_LLM_API_KEY` / `SURREALMEM_EMBED_API_KEY` too if the machine is on a shared network),
-  or use a hosted endpoint. While embeddings are down, retrieval degrades to lexical search and the
-  worker cannot extract.
+  allow the traffic in the firewall (`sudo ufw allow in on docker0`), or switch to Option C (`just
+  host-up`), where the API runs on the host and reaches inference over loopback. While embeddings are
+  down, retrieval degrades to lexical search and the worker cannot extract.
 - **SurrealDB container exits with a permissions error on `/data`.** `SURREAL_RUN_AS` does not match
   the owner of `./data/surrealdb`. Set it to your `uid:gid` and run `just up` again.
 - **`llama-server` lists the GPU but aborts when a model loads.** The binary was built for another

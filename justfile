@@ -128,6 +128,31 @@ docker-down:
 docker-logs service="api":
     docker compose --profile full logs -f {{service}}
 
+# ---------------------------------------------------------------- this machine, at boot and login
+
+# Run everything on this PC: SurrealDB + dashboard (nginx on the host network, port 80) as
+# containers that Docker restarts at boot; inference, API and worker as systemd user units that
+# start at login. Replaces any `just docker-up` stack (it keeps the SurrealDB container and data).
+host-up:
+    mkdir -p data/surrealdb && docker compose up -d surrealdb
+    docker compose --profile full rm -sf migrate api worker dashboard >/dev/null 2>&1 || true
+    cd {{backend}} && uv run surrealmem migrate
+    cd {{backend}} && uv run surrealmem ops inference install
+    cd {{backend}} && uv run surrealmem ops services install
+    docker compose --profile host up -d --build dashboard-host
+    @echo "dashboard: http://localhost:${DASHBOARD_HOST_PORT:-80}  (API http://127.0.0.1:${SURREALMEM_API_PORT:-8790})"
+
+# Undo host-up: stop the API and worker units and remove the host-network dashboard container
+host-down:
+    cd {{backend}} && uv run surrealmem ops services stop
+    docker compose --profile host rm -sf dashboard-host
+
+# What is running on this machine (units, containers, health)
+host-status:
+    cd {{backend}} && uv run surrealmem ops inference status
+    cd {{backend}} && uv run surrealmem ops services status
+    docker compose --profile host --profile full ps
+
 # ---------------------------------------------------------------- host inference and units
 
 # Build llama.cpp with HIP for this GPU (idempotent)
