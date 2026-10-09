@@ -45,6 +45,10 @@ class JobStore(Protocol):
 
     async def recent(self, *, limit: int = 50, status: str | None = None) -> list[Job]: ...
 
+    async def requeue(self, *, status: str = "dead", kind: str | None = None) -> int:
+        """Put jobs back on the queue with a fresh attempt budget. Returns how many."""
+        ...
+
 
 class MessageSource(Protocol):
     """What the pipeline needs to know about messages (implemented over the conversations slice)."""

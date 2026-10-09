@@ -161,6 +161,22 @@ class SurrealJobStore:
         )
         return {r["status"]: int(r["n"]) for r in rows}
 
+    async def requeue(self, *, status: str = "dead", kind: str | None = None) -> int:
+        rows = cast(
+            "list[dict[str, Any]]",
+            await run_one(
+                self.db,
+                """
+                UPDATE job SET status = 'queued', attempts = 0, scheduled_at = time::now()
+                WHERE status = $status AND ($kind = NONE OR kind = $kind)
+                RETURN id
+                """,
+                {"status": status, "kind": kind},
+            )
+            or [],
+        )
+        return len(rows)
+
     async def recent(self, *, limit: int = 50, status: str | None = None) -> list[Job]:
         clause = "WHERE status = $status" if status else ""
         rows = cast(

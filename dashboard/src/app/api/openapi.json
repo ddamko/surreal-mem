@@ -2485,6 +2485,66 @@
         }
       }
     },
+    "/api/v1/jobs/requeue": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "Requeue Jobs",
+        "description": "Give dead (or failed) jobs a fresh attempt budget, optionally one kind only.",
+        "operationId": "requeue_jobs_api_v1_jobs_requeue_post",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "dead",
+              "title": "Status"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Requeued"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/jobs/counts": {
       "get": {
         "tags": [
@@ -4818,6 +4878,19 @@
           "last_seen_at"
         ],
         "title": "Relationship"
+      },
+      "Requeued": {
+        "properties": {
+          "requeued": {
+            "type": "integer",
+            "title": "Requeued"
+          }
+        },
+        "type": "object",
+        "required": [
+          "requeued"
+        ],
+        "title": "Requeued"
       },
       "RetrievalQuery": {
         "properties": {

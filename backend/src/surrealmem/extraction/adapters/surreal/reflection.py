@@ -33,7 +33,7 @@ class SurrealReflectionRepository:
                 self.db,
                 f"""
                 SELECT VALUE id FROM conversation
-                WHERE message_count - reflected_to >= $min_new
+                WHERE (message_count ?? 0) - (reflected_to ?? 0) >= $min_new
                   AND last_message_at IS NOT NONE
                   AND last_message_at < time::now() - {idle}s
                 LIMIT $limit

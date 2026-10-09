@@ -679,6 +679,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs/requeue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Requeue Jobs
+         * @description Give dead (or failed) jobs a fresh attempt budget, optionally one kind only.
+         */
+        post: operations["requeue_jobs_api_v1_jobs_requeue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs/counts": {
         parameters: {
             query?: never;
@@ -1632,6 +1652,11 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             };
+        };
+        /** Requeued */
+        Requeued: {
+            /** Requeued */
+            requeued: number;
         };
         /**
          * RetrievalQuery
@@ -3384,6 +3409,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Enqueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    requeue_jobs_api_v1_jobs_requeue_post: {
+        parameters: {
+            query?: {
+                status?: string;
+                kind?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Requeued"];
                 };
             };
             /** @description Validation Error */

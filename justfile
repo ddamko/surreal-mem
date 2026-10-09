@@ -209,6 +209,10 @@ import-hindsight bank="hermes" space="personal":
 job kind:
     cd {{backend}} && uv run surrealmem jobs enqueue {{kind}}
 
+# Put dead jobs back on the queue: just jobs-requeue | just jobs-requeue dead extract
+jobs-requeue status="dead" kind="":
+    cd {{backend}} && uv run surrealmem jobs requeue --status {{status}} {{ if kind != "" { "--kind " + kind } else { "" } }}
+
 # Job counts by status
 jobs:
     cd {{backend}} && uv run surrealmem jobs status

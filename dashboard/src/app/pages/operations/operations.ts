@@ -44,6 +44,13 @@ export class OperationsPage {
     });
   }
 
+  protected async requeueDead(): Promise<void> {
+    const { data, error } = await this.api.client.POST('/api/v1/jobs/requeue', { params: { query: { status: 'dead' } } });
+    this.notice.set(error ? 'Could not requeue dead jobs' : `Requeued ${data?.requeued ?? 0} job(s); the worker will retry them`);
+    this.counts.reload();
+    this.jobs.reload();
+  }
+
   protected async enqueue(kind: string): Promise<void> {
     const { data, error } = await this.api.client.POST('/api/v1/jobs', { body: { kind, payload: {}, priority: 3 } });
     this.notice.set(error ? `Could not enqueue ${kind}` : `Queued ${kind} (${data?.job_id})`);

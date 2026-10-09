@@ -218,6 +218,24 @@ def jobs_enqueue(
     typer.echo(asyncio.run(_run()))
 
 
+@jobs_app.command("requeue")
+def jobs_requeue(
+    status: Annotated[str, typer.Option(help="dead | failed")] = "dead",
+    kind: Annotated[str | None, typer.Option(help="Only this job kind, e.g. extract")] = None,
+) -> None:
+    """Put dead jobs back on the queue with a fresh attempt budget."""
+    settings = _settings()
+
+    async def _run() -> int:
+        container = await build_container(settings)
+        try:
+            return await container.services.extraction.job_store.requeue(status=status, kind=kind)
+        finally:
+            await container.close()
+
+    typer.echo(f"requeued {asyncio.run(_run())} job(s)")
+
+
 @jobs_app.command("status")
 def jobs_status() -> None:
     """Show job counts by status."""

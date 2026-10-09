@@ -55,6 +55,22 @@ class JobCounts(BaseModel):
     counts: dict[str, int]
 
 
+class Requeued(BaseModel):
+    requeued: int
+
+
+@router.post("/requeue")
+async def requeue_jobs(
+    store: StoreDep,
+    status: str = "dead",
+    kind: str | None = None,
+) -> Requeued:
+    """Give dead (or failed) jobs a fresh attempt budget, optionally one kind only."""
+    if status not in ("dead", "failed"):
+        raise ValueError("status must be 'dead' or 'failed'")
+    return Requeued(requeued=await store.requeue(status=status, kind=kind))
+
+
 class WaitResult(BaseModel):
     job: Job | None
     settled: bool

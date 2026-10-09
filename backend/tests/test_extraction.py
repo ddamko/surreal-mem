@@ -328,6 +328,9 @@ async def test_worker_loop_survives_claim_errors() -> None:
         async def recent(self, *, limit: int = 50, status: str | None = None) -> list[Job]:
             return []
 
+        async def requeue(self, *, status: str = "dead", kind: str | None = None) -> int:
+            return 0
+
     async def noop(job: Job) -> dict[str, Any]:
         return {"ok": True}
 
