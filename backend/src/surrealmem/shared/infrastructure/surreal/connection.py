@@ -11,11 +11,19 @@ from typing import TYPE_CHECKING, Any, cast
 from surrealdb import AsyncSurreal
 
 from surrealmem.shared.infrastructure.config import EMBEDDED_SCHEMES
+from surrealmem.shared.infrastructure.logging import get_logger
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
 type SurrealConnection = Any  # the SDK returns one of three connection classes
+
+log = get_logger("surrealmem.surreal")
+
+#: Attribute under which the credentials are kept on the SDK connection object, so a session
+#: can be re-established after the SDK silently replaces its WebSocket.
+_CONFIG_ATTR = "_surrealmem_config"
+_AUTH_LOST_MARKERS = ("anonymous access", "not enough permissions", "authentication")
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,10 +60,36 @@ async def open_connection(config: SurrealConfig) -> SurrealConnection:
     factory = cast("Callable[..., SurrealConnection]", AsyncSurreal)
     db = factory(url=config.url)
     await db.connect()
+    remember_config(db, config)
+    await reauthenticate(db)
+    return db
+
+
+def remember_config(db: SurrealConnection, config: SurrealConfig) -> None:
+    """Keep the credentials with the connection so the session can be rebuilt later."""
+    setattr(db, _CONFIG_ATTR, config)
+
+
+async def reauthenticate(db: SurrealConnection) -> bool:
+    """Sign in again and reselect namespace/database.
+
+    The SDK's WebSocket engine reconnects on its own when the server closes the socket (for
+    example "client stopped reading its notifications" during a busy boot), but the new socket
+    is a new, anonymous server-side session: every statement then fails with
+    "Anonymous access not allowed". Returns False when no credentials are known.
+    """
+    config = cast("SurrealConfig | None", getattr(db, _CONFIG_ATTR, None))
+    if config is None:
+        return False
     if not config.is_embedded:
         await db.signin({"username": config.user, "password": config.password})
     await db.use(config.namespace, config.database)
-    return db
+    return True
+
+
+def is_auth_lost(message: str) -> bool:
+    lowered = message.lower()
+    return any(marker in lowered for marker in _AUTH_LOST_MARKERS)
 
 
 def _split_preview(sql: str, index: int) -> str:
@@ -72,8 +106,26 @@ async def run_script(
 ) -> list[Any]:
     """Execute ``sql`` (one or many statements) and return every statement's result.
 
-    Raises :class:`ScriptError` for the first statement whose status is not ``OK``.
+    Raises :class:`ScriptError` for the first statement whose status is not ``OK``. When the
+    failure says the session is anonymous, the connection is re-authenticated and the script
+    retried once.
     """
+    try:
+        return await _run_script_once(db, sql, variables)
+    except ScriptError as exc:
+        if not is_auth_lost(exc.message):
+            raise
+        if not await reauthenticate(db):
+            raise
+        log.warning("surreal.session_restored", reason=exc.message[:120])
+        return await _run_script_once(db, sql, variables)
+
+
+async def _run_script_once(
+    db: SurrealConnection,
+    sql: str,
+    variables: Mapping[str, Any] | None = None,
+) -> list[Any]:
     raw = await db.query_raw(sql, dict(variables) if variables else None)
     if "error" in raw:
         # Whole-script failure (for example a parse error): no statement ran.

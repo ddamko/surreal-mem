@@ -67,3 +67,44 @@ async def test_pump_accepts_awaitable_and_generator_subscribe_live() -> None:
             assert event.table == "entity" and event.id == "entity:1" and event.action == "CREATE"
             await relay.stop()
         assert db.killed == ["live-entity"]
+
+
+class _DroppingDb(_WsLikeDb):
+    """First stream ends at once (socket replaced); the second one delivers."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.subscriptions = 0
+        self.signins = 0
+
+    async def signin(self, vars: dict[str, object]) -> None:
+        self.signins += 1
+
+    async def use(self, namespace: str, database: str) -> None:
+        return None
+
+    async def subscribe_live(self, live_id: str):
+        self.subscriptions += 1
+        first = self.subscriptions == 1
+
+        async def stream():
+            if first:
+                return
+            yield {"action": "CREATE", "result": {"id": "entity:2", "name": "Grace"}}
+            await asyncio.sleep(3600)
+
+        return stream()
+
+
+async def test_pump_resubscribes_after_the_stream_ends() -> None:
+    from surrealmem.shared.infrastructure.surreal.connection import SurrealConfig, remember_config
+
+    db = _DroppingDb()
+    remember_config(db, SurrealConfig(url="ws://db:8000/rpc", namespace="ns", database="db"))
+    relay = LiveRelay(db=db, tables=("entity",))  # type: ignore[arg-type]
+    async with relay.subscribe() as queue:
+        await relay.start()
+        event = await asyncio.wait_for(queue.get(), timeout=5)
+        assert event.id == "entity:2"
+        assert db.subscriptions == 2 and db.signins == 1
+        await relay.stop()

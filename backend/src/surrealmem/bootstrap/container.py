@@ -26,10 +26,12 @@ class AppContainer:
     services: Services
 
     async def is_ready(self) -> bool:
+        """True when the session can read database metadata; ``RETURN 1`` would pass anonymously."""
         try:
-            return await run_one(self.db, "RETURN 1") == 1
+            info = await run_one(self.db, "INFO FOR DB")
         except Exception:
             return False
+        return isinstance(info, dict)
 
     async def close(self) -> None:
         await self.db.close()

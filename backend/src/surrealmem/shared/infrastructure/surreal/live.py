@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any, cast
 from pydantic import BaseModel, Field
 
 from surrealmem.shared.infrastructure.logging import get_logger
+from surrealmem.shared.infrastructure.surreal.connection import reauthenticate
 from surrealmem.shared.infrastructure.surreal.records import plain
 
 if TYPE_CHECKING:
@@ -91,13 +92,7 @@ class LiveRelay:
 
     async def start(self) -> None:
         for table in self.tables:
-            try:
-                live_id = await self.db.live(table)
-            except Exception as exc:
-                log.warning("live.unavailable", table=table, error=str(exc))
-                continue
-            self._live_ids.append(live_id)
-            self._tasks.append(asyncio.create_task(self._pump(table, live_id)))
+            self._tasks.append(asyncio.create_task(self._pump(table)))
         log.info("live.started", tables=len(self._tasks))
 
     async def stop(self) -> None:
@@ -112,19 +107,35 @@ class LiveRelay:
         self._tasks.clear()
         self._live_ids.clear()
 
-    async def _pump(self, table: str, live_id: Any) -> None:
-        try:
-            # The WebSocket engine's subscribe_live is a coroutine that *returns* the async
-            # generator; the embedded engine raises. Accept either shape.
-            stream = self.db.subscribe_live(live_id)
-            if inspect.isawaitable(stream):
-                stream = await stream
-            async for notification in stream:
-                if isinstance(notification, dict):
-                    self.publish(
-                        event_from_notification(table, cast("dict[str, Any]", notification))
-                    )
-        except asyncio.CancelledError:
-            raise
-        except Exception as exc:
-            log.warning("live.pump_failed", table=table, error=str(exc))
+    async def _pump(self, table: str) -> None:
+        """Keep one live query on ``table`` alive for the relay's lifetime.
+
+        The stream ends when the SDK replaces its socket (the server closed it); the new session
+        is anonymous and has no live queries, so re-authenticate and subscribe again, backing off
+        on repeated failures. Cancellation (``stop``) is the only way out.
+        """
+        delay = 1.0
+        while True:
+            try:
+                live_id = await self.db.live(table)
+                self._live_ids.append(live_id)
+                stream = self.db.subscribe_live(live_id)
+                if inspect.isawaitable(stream):
+                    stream = await stream
+                delay = 1.0
+                async for notification in stream:
+                    if isinstance(notification, dict):
+                        self.publish(
+                            event_from_notification(table, cast("dict[str, Any]", notification))
+                        )
+                log.info("live.stream_ended", table=table)
+                with contextlib.suppress(Exception):
+                    self._live_ids.remove(live_id)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                log.warning("live.pump_failed", table=table, error=str(exc), retry_in=delay)
+            await asyncio.sleep(delay)
+            delay = min(delay * 2, 30.0)
+            with contextlib.suppress(Exception):
+                await reauthenticate(self.db)
